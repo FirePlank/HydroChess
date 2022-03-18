@@ -3,7 +3,7 @@ pub struct Bitboard(pub u64);
 
 // implementing all the bitboard functions
 impl Bitboard {
-    pub fn print(&self) {
+    pub fn show(&self) {
         // loop over board ranks
         for rank in 0..8 {
             // loop over board files
@@ -41,8 +41,8 @@ pub enum Square {
 }
 
 // set bit at given square
-pub fn set_bit(bitboard: &mut Bitboard, square: Square) {
-    bitboard.0 |= 1 << square as usize;
+pub fn set_bit(bitboard: &mut Bitboard, square: usize) {
+    bitboard.0 |= 1 << square;
 }
 
 // remove bit at given square, check if square is already set to 0
