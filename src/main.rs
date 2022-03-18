@@ -15,7 +15,7 @@ fn main() {
 
     for square in 0..64 {
         unsafe {
-            Bitboard(PAWN_ATTACKS[Side::BLACK][square]).show();
+            Bitboard(KNIGHT_ATTACKS[square]).show();
         }
     }
 }
