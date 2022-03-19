@@ -13,9 +13,8 @@ use std::io::stdin;
 fn main() {
     init_leapers_attacks();
 
+    // mask_bishop_attacks(Square::D4 as usize).show();
     for square in 0..64 {
-        unsafe {
-            Bitboard(KING_ATTACKS[square]).show();
-        }
+        mask_rook_attacks(square).show();
     }
 }

@@ -15,7 +15,7 @@ impl Bitboard {
                     print!("{}  ", 8 - rank);
                 }
                 // print bit state (1 or 0)
-                print!("{} ", get_bit(&self, square));
+                print!("{} ", self.get(square));
             }
             // print newline every rank
             println!();
@@ -24,6 +24,23 @@ impl Bitboard {
         println!("   a b c d e f g h");
         // print bitboard as unsigned decimal
         println!("\n   Bitboard: {}\n", self.0.to_string());
+    }
+
+    // set bit at given square
+    pub fn set(&mut self, square: usize) {
+        self.0 |= 1 << square;
+    }
+
+    // remove bit at given square, check if square is already set to 0
+    pub fn pop(&mut self, square: Square) {
+        if self.0 & (1 << square as usize) != 0 {
+            self.0 ^= 1 << square as usize;
+        }
+    }
+
+    // return 1 if square is not empty, 0 otherwise
+    pub fn get(&self, square: usize) -> u64 {
+        if self.0 & (1 << square) == 0 { return 0; } else { return 1; }
     }
 }
 
@@ -38,21 +55,4 @@ pub enum Square {
     A3, B3, C3, D3, E3, F3, G3, H3,
     A2, B2, C2, D2, E2, F2, G2, H2,
     A1, B1, C1, D1, E1, F1, G1, H1,
-}
-
-// set bit at given square
-pub fn set_bit(bitboard: &mut Bitboard, square: usize) {
-    bitboard.0 |= 1 << square;
-}
-
-// remove bit at given square, check if square is already set to 0
-pub fn pop_bit(bitboard: &mut Bitboard, square: Square) {
-    if bitboard.0 & (1 << square as usize) != 0 {
-        bitboard.0 ^= 1 << square as usize;
-    }
-}
-
-// return 1 if square is not empty, 0 otherwise
-pub fn get_bit(bitboard: &Bitboard, square: usize) -> u64 {
-    if bitboard.0 & (1 << square) == 0 { return 0; } else { return 1; }
 }

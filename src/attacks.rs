@@ -27,7 +27,7 @@ pub fn mask_pawn_attacks(square: usize, side: usize) -> Bitboard {
     let mut attacks = Bitboard(0);     // result attacks bitboard
     let mut bitboard = Bitboard(0);    // piece bitboard
 
-    set_bit(&mut bitboard, square); // set piece on board
+    bitboard.set(square); // set piece on board
 
     if side == Side::WHITE {
         // generate white pawn attacks
@@ -55,7 +55,7 @@ pub fn mask_knight_attacks(square: usize) -> Bitboard {
     let mut attacks = Bitboard(0);     // result attacks bitboard
     let mut bitboard = Bitboard(0);    // piece bitboard
 
-    set_bit(&mut bitboard, square); // set piece on board
+    bitboard.set(square); // set piece on board
 
     // generate knight attacks (OFFSETS: 17, 15, 10, 6)
     if bitboard.0 << 17 & NOT_A_FILE.0 != 0 {
@@ -86,7 +86,7 @@ pub fn mask_king_attack(square: usize) -> Bitboard {
     let mut attacks = Bitboard(0);     // result attacks bitboard
     let mut bitboard = Bitboard(0);    // piece bitboard
 
-    set_bit(&mut bitboard, square); // set piece on board
+    bitboard.set(square); // set piece on board
 
     // generate king attacks
     if bitboard.0 >> 8 != 0 {
@@ -107,6 +107,80 @@ pub fn mask_king_attack(square: usize) -> Bitboard {
         attacks.0 |= bitboard.0 << 7;
     } if bitboard.0 << 1 & NOT_A_FILE.0 != 0 {
         attacks.0 |= bitboard.0 << 1;
+    }
+
+    // return attack map
+    return attacks;
+}
+
+// mask bishop attacks
+pub fn mask_bishop_attacks(square: i32) -> Bitboard {
+    let mut attacks = Bitboard(0);     // result attacks bitboard
+
+    // init target rank & files
+    let tr = square / 8;
+    let tf = square % 8;
+    // init ranks & files
+    let mut r = tr + 1;
+    let mut f = tf + 1;
+
+    // mask relevant bishop occupancy bits
+    while r <= 6 && f <= 6 {
+        attacks.0 |= 1 << (r * 8 + f);
+        r+=1;f+=1;
+    }
+    r = tr - 1;
+    f = tf + 1;
+    while r >= 1 && f <= 6 {
+        attacks.0 |= 1 << (r * 8 + f);
+        r-=1;f+=1;
+    }
+    r = tr + 1;
+    f = tf - 1;
+    while r <= 6 && f >= 1 {
+        attacks.0 |= 1 << (r * 8 + f);
+        r+=1;f-=1;
+    }
+    r = tr - 1;
+    f = tf - 1;
+    while r >= 1 && f >= 1 {
+        attacks.0 |= 1 << (r * 8 + f);
+        r-=1;f-=1;
+    }
+
+    // return attack map
+    return attacks;
+}
+
+// mask rook attacks
+pub fn mask_rook_attacks(square: i32) -> Bitboard {
+    let mut attacks = Bitboard(0);     // result attacks bitboard
+
+    // init target rank & files
+    let tr = square / 8;
+    let tf = square % 8;
+    // init ranks & files
+    let mut r = tr + 1;
+    let mut f = tf + 1;
+
+    // mask relevant rook occupancy bits
+    while r <= 6 {
+        attacks.0 |= 1 << (r * 8 + tf);
+        r+=1
+    }
+    r = tr - 1;
+    while r >= 1 {
+        attacks.0 |= 1 << (r * 8 + tf);
+        r-=1
+    }
+    while f <= 6 {
+        attacks.0 |= 1 << (tr * 8 + f);
+        f+=1
+    }
+    f = tf - 1;
+    while f >= 1 {
+        attacks.0 |= 1 << (tr * 8 + f);
+        f-=1
     }
 
     // return attack map
