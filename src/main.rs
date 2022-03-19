@@ -11,5 +11,14 @@ use magic::*;
 // use std::io::stdin;
 
 fn main() {
-    init_leapers_attacks();
+    init_all();
+
+    // define test bitboard
+    let mut occupancy = Bitboard(0);
+    occupancy.set(Square::D2 as usize);
+    occupancy.show();
+
+    // print bishop attacks
+    Bitboard(get_rook_attacks(Square::D4 as usize, &mut occupancy)).show();
+
 }

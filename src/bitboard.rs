@@ -49,27 +49,35 @@ impl Bitboard {
     }
 
     // get least significant 1st bit index
-    pub fn ls1b(&self) -> usize {
-        return ((self.0 as i64 & -(self.0 as i64))-1).count_ones() as usize;
+    pub fn ls1b(&self) -> isize {
+        if self.0 != 0 {
+            return ((self.0 as i64 & -(self.0 as i64))-1).count_ones() as isize;
+        } else {
+            // illegal index
+            return -1;
+        }
     }
 }
 
-pub fn set_occupancy(index: i32, bits_in_mask: u32, mut attack_mask: &mut Bitboard) -> Bitboard {
-    let mut occupancy = Bitboard(0); // occypancy map
+pub fn set_occupancy(index: i32, bits_in_mask: u32, attack_mask: &mut Bitboard) -> Bitboard {
+    let mut occupancy = Bitboard(0); // occupancy map
 
     // loop over the range of bits within attack mask
     for count in 0..bits_in_mask {
         // get LS1B index of attack mask
-        let mut square = attack_mask.ls1b();
+        let square = attack_mask.ls1b();
+        if square == -1 {
+            continue;
+        }
         // pop LS1B in attack map
-        attack_mask.pop(square);
+        attack_mask.pop(square as usize);
         
         // make sure occupancy is on board
         if index & (1 << count) != 0 {
             // populate occupancy map
             occupancy.0 |= 1 << square;
         }
-     }
+    }
 
     // return occupancy map
     return occupancy;
@@ -88,6 +96,7 @@ pub enum Square {
     A1, B1, C1, D1, E1, F1, G1, H1,
 }
 // square string list
+#[allow(dead_code)]
 pub const SQUARE_COORDS: [&str;64] = [
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
     "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",

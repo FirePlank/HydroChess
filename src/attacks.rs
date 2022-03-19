@@ -1,4 +1,5 @@
 use super::bitboard::*;
+use super::magic::*;
 
 pub struct Side;
 impl Side {
@@ -21,6 +22,17 @@ pub static mut PAWN_ATTACKS: [[u64;64];2] = [[0;64],[0;64]];
 pub static mut KNIGHT_ATTACKS: [u64;64] = [0;64];
 // king attack table [square]
 pub static mut KING_ATTACKS: [u64;64] = [0;64];
+
+// bishop attack masks
+pub static mut BISHOP_MASKS: [u64;64] = [0;64]; 
+// bishop attack masks
+pub static mut ROOK_MASKS: [u64;64] = [0;64]; 
+
+// bishop attack table [square][occupancies]
+pub static mut BISHOP_ATTACKS: [[u64;512];64] = [[0;512];64];
+// rook attack table [square][occupancies]
+pub static mut ROOK_ATTACKS: [[u64;4096];64] = [[0;4096];64];
+
 
 // generate pawn attacks
 pub fn mask_pawn_attacks(square: usize, side: usize) -> Bitboard {
@@ -249,32 +261,106 @@ pub fn fly_rook_attacks(square: i32, block: Bitboard) -> Bitboard {
     while r <= 7 {
         attacks.0 |= 1 << (r * 8 + tf);
         // check if blocked
-        if 1 << (r * 8 + tf) & block.0 != 0 { break; }
+        if ((1 << (r * 8 + tf)) & block.0) != 0 { break; }
         r+=1
     }
     r = tr - 1;
-    while r >= 0{
+    while r >= 0 {
         attacks.0 |= 1 << (r * 8 + tf);
         // check if blocked
-        if 1 << (r * 8 + tf) & block.0 != 0 { break; }
+        if ((1 << (r * 8 + tf)) & block.0) != 0 { break; }
         r-=1
     }
     while f <= 7 {
         attacks.0 |= 1 << (tr * 8 + f);
         // check if blocked
-        if 1 << (tr * 8 + f) & block.0 != 0 { break; }
+        if ((1 << (tr * 8 + f)) & block.0) != 0 { break; }
         f+=1;
     }
     f = tf - 1;
     while f >= 0 {
         attacks.0 |= 1 << (tr * 8 + f);
         // check if blocked
-        if 1 << (tr * 8 + f) & block.0 != 0 { break; }
+        if ((1 << (tr * 8 + f)) & block.0) != 0 { break; }
         f-=1;
     }
 
     // return attack map
     return attacks;
+}
+
+// get bishop attacks
+pub fn get_bishop_attacks(square: usize, mut occupancy: &mut Bitboard) -> u64 {
+    unsafe {
+        // get bishop attacks assuming current board occupancy
+        occupancy.0 &= BISHOP_MASKS[square];
+        occupancy.0 *= MAGIC_BISHOP[square];
+        occupancy.0 >>= 64 - BISHOP_BITS[square];
+
+        // return bishop attacks
+        return BISHOP_ATTACKS[square][occupancy.0 as usize];
+    }
+}
+// get rook attacks
+pub fn get_rook_attacks(square: usize, mut occupancy: &mut Bitboard) -> u64 {
+    unsafe {
+        // get rook attacks assuming current board occupancy
+        occupancy.0 &= ROOK_MASKS[square];
+        occupancy.0 *= MAGIC_ROOK[square];
+        occupancy.0 >>= 64 - ROOK_BITS[square];
+
+        // return rook attacks
+        return ROOK_ATTACKS[square][occupancy.0 as usize];
+    }
+}
+
+// init slider piece's attack tables
+pub fn init_sliders_attacks(bishop: bool) {
+    // loop over 64 board squares
+    for square in 0..64 {
+        unsafe {
+            // init bishop & rook masks
+            BISHOP_MASKS[square] = mask_bishop_attacks(square as i32).0;
+            ROOK_MASKS[square] = mask_rook_attacks(square as i32).0;
+
+            // init current mask
+            let mut attack_mask: Bitboard;
+            if bishop {
+                attack_mask = Bitboard(BISHOP_MASKS[square]);
+            } else {
+                attack_mask = Bitboard(ROOK_MASKS[square]);
+            }
+            
+            // init relevant occupancy bit count
+            let relevant_bits = attack_mask.count();
+            // init occupancy indicies
+            let occupancy_indicies = 1 << relevant_bits;
+
+            // loop over occupancy indicies
+            let mut index = 0;
+            while index < occupancy_indicies {
+                if bishop {
+                    // bishop
+                    // init current occupancy variation
+                    let occupancy = set_occupancy(index, relevant_bits, &mut attack_mask);
+                    // init magic index
+                    let magic_index = (occupancy.0 * MAGIC_BISHOP[square]) >> (64 - BISHOP_BITS[square]);
+                    // init bishop attacks
+                    BISHOP_ATTACKS[square][magic_index as usize] = fly_bishop_attacks(square as i32, occupancy).0; 
+                } else {
+                    // rook
+                    // init current occupancy variation
+                    let occupancy = set_occupancy(index, relevant_bits, &mut attack_mask);
+                    // init magic index
+                    let magic_index = (occupancy.0 * MAGIC_ROOK[square]) >> (64 - ROOK_BITS[square]);
+                    // init rook attacks
+                    ROOK_ATTACKS[square][magic_index as usize] = fly_rook_attacks(square as i32, occupancy).0;
+                }
+                index+=1;
+            }
+        }
+    }
+
 }
 
 pub fn init_leapers_attacks() {
@@ -292,4 +378,13 @@ pub fn init_leapers_attacks() {
             KING_ATTACKS[square] = mask_king_attack(square).0;
         }
     }
+}
+
+pub fn init_all() {
+    // init leaper pieces attacks
+    init_leapers_attacks();
+
+    // init slider pieces attacks
+    init_sliders_attacks(true); // bishop
+    init_sliders_attacks(false); // rook
 }
