@@ -32,9 +32,9 @@ impl Bitboard {
     }
 
     // remove bit at given square, check if square is already set to 0
-    pub fn pop(&mut self, square: Square) {
-        if self.0 & (1 << square as usize) != 0 {
-            self.0 ^= 1 << square as usize;
+    pub fn pop(&mut self, square: usize) {
+        if self.0 & (1 << square) != 0 {
+            self.0 ^= 1 << square;
         }
     }
 
@@ -42,6 +42,37 @@ impl Bitboard {
     pub fn get(&self, square: usize) -> u64 {
         if self.0 & (1 << square) == 0 { return 0; } else { return 1; }
     }
+
+    // count one bits in bitboard
+    pub fn count(&self) -> u32 {
+        return self.0.count_ones(); // rust makes this really easy lol, thanks rust <3
+    }
+
+    // get least significant 1st bit index
+    pub fn ls1b(&self) -> usize {
+        return ((self.0 as i64 & -(self.0 as i64))-1).count_ones() as usize;
+    }
+}
+
+pub fn set_occupancy(index: i32, bits_in_mask: u32, mut attack_mask: &mut Bitboard) -> Bitboard {
+    let mut occupancy = Bitboard(0); // occypancy map
+
+    // loop over the range of bits within attack mask
+    for count in 0..bits_in_mask {
+        // get LS1B index of attack mask
+        let mut square = attack_mask.ls1b();
+        // pop LS1B in attack map
+        attack_mask.pop(square);
+        
+        // make sure occupancy is on board
+        if index & (1 << count) != 0 {
+            // populate occupancy map
+            occupancy.0 |= 1 << square;
+        }
+     }
+
+    // return occupancy map
+    return occupancy;
 }
 
 #[allow(dead_code)]
@@ -56,3 +87,14 @@ pub enum Square {
     A2, B2, C2, D2, E2, F2, G2, H2,
     A1, B1, C1, D1, E1, F1, G1, H1,
 }
+// square string list
+pub const SQUARE_COORDS: [&str;64] = [
+    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
+    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
+    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
+    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
+    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
+    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
+    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
+    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
+];
