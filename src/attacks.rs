@@ -187,6 +187,96 @@ pub fn mask_rook_attacks(square: i32) -> Bitboard {
     return attacks;
 }
 
+// generate bishop attacks on the fly
+pub fn fly_bishop_attacks(square: i32, block: Bitboard) -> Bitboard {
+    let mut attacks = Bitboard(0);     // result attacks bitboard
+
+    // init target rank & files
+    let tr = square / 8;
+    let tf = square % 8;
+    // init ranks & files
+    let mut r = tr + 1;
+    let mut f = tf + 1;
+
+    // generate bishop attacks
+    while r <= 7 && f <= 7 {
+        attacks.0 |= 1 << (r * 8 + f);
+        // check if blocked
+        if 1 << (r * 8 + f) & block.0 != 0 { break; }
+        r+=1;f+=1;
+    }
+    r = tr - 1;
+    f = tf + 1;
+    while r >= 0 && f <= 7 {
+        attacks.0 |= 1 << (r * 8 + f);
+        // check if blocked
+        if 1 << (r * 8 + f) & block.0 != 0 { break; }
+        r-=1;f+=1;
+    }
+    r = tr + 1;
+    f = tf - 1;
+    while r <= 7 && f >= 0 {
+        attacks.0 |= 1 << (r * 8 + f);
+        // check if blocked
+        if 1 << (r * 8 + f) & block.0 != 0 { break; }
+        r+=1;f-=1;
+    }
+    r = tr - 1;
+    f = tf - 1;
+    while r >= 0 && f >= 0 {
+        attacks.0 |= 1 << (r * 8 + f);
+        // check if blocked
+        if 1 << (r * 8 + f) & block.0 != 0 { break; }
+        r-=1;f-=1;
+    }
+
+    // return attack map
+    return attacks;
+}
+
+// generate rook attacks on the fly
+pub fn fly_rook_attacks(square: i32, block: Bitboard) -> Bitboard {
+    let mut attacks = Bitboard(0);     // result attacks bitboard
+
+    // init target rank & files
+    let tr = square / 8;
+    let tf = square % 8;
+    // init ranks & files
+    let mut r = tr + 1;
+    let mut f = tf + 1;
+
+    // generate rook attacks
+    while r <= 7 {
+        attacks.0 |= 1 << (r * 8 + tf);
+        // check if blocked
+        if 1 << (r * 8 + tf) & block.0 != 0 { break; }
+        r+=1
+    }
+    r = tr - 1;
+    while r >= 0{
+        attacks.0 |= 1 << (r * 8 + tf);
+        // check if blocked
+        if 1 << (r * 8 + tf) & block.0 != 0 { break; }
+        r-=1
+    }
+    while f <= 7 {
+        attacks.0 |= 1 << (tr * 8 + f);
+        // check if blocked
+        if 1 << (tr * 8 + f) & block.0 != 0 { break; }
+        f+=1;
+    }
+    f = tf - 1;
+    while f >= 0 {
+        attacks.0 |= 1 << (tr * 8 + f);
+        // check if blocked
+        if 1 << (tr * 8 + f) & block.0 != 0 { break; }
+        f-=1;
+    }
+
+    // return attack map
+    return attacks;
+}
+
 pub fn init_leapers_attacks() {
     // loop over 64 board squares
     for square in 0..64 {

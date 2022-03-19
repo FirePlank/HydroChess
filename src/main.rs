@@ -13,8 +13,12 @@ use std::io::stdin;
 fn main() {
     init_leapers_attacks();
 
-    // mask_bishop_attacks(Square::D4 as usize).show();
-    for square in 0..64 {
-        mask_rook_attacks(square).show();
-    }
+    // init occupancy bitboard
+    let mut block = Bitboard(0);
+    block.set(Square::D7 as usize);
+    block.set(Square::D2 as usize);
+    block.set(Square::C4 as usize);
+    block.set(Square::G4 as usize);
+
+    fly_rook_attacks(Square::D4 as i32, block).show();
 }
