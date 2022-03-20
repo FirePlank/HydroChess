@@ -310,6 +310,35 @@ pub fn get_rook_attacks(square: usize, mut occupancy: Bitboard) -> u64 {
     }
 }
 
+// get queen attacks
+pub fn get_queen_attacks(square: usize, occupancy: Bitboard) -> u64 {
+    unsafe {
+        // init result attacks bitboard
+        let mut result;
+        // init bishop occupancies
+        let mut bishop_occupancies = occupancy;
+        // init rook occupancies
+        let mut rook_occupancies = occupancy;
+
+        // get bishop attacks assuming current board occupancy
+        bishop_occupancies.0 &= BISHOP_MASKS[square];
+        bishop_occupancies.0 = bishop_occupancies.0.wrapping_mul(MAGIC_BISHOP[square]);
+        bishop_occupancies.0 >>= 64 - BISHOP_BITS[square];
+        // get bishop attacks
+        result = BISHOP_ATTACKS[square][bishop_occupancies.0 as usize];
+
+        // get rook attacks assuming current board occupancy
+        rook_occupancies.0 &= ROOK_MASKS[square];
+        rook_occupancies.0 = rook_occupancies.0.wrapping_mul(MAGIC_ROOK[square]);
+        rook_occupancies.0 >>= 64 - ROOK_BITS[square];
+        // get rook attacks
+        result |= ROOK_ATTACKS[square][rook_occupancies.0 as usize];
+        
+        // return queen attacks
+        return result;
+    }
+}
+
 // init slider piece's attack tables
 pub fn init_sliders_attacks(bishop: bool) {
     // loop over 64 board squares

@@ -181,6 +181,10 @@ impl Position {
             } else { castling.push_str("-"); }
             castling
         });
+        // print halfmove clock
+        println!("Halfmove clock: {}", self.halfmove);
+        // print fullmove number
+        println!("Fullmove number: {}", self.fullmove);
     }
 
     pub fn from_fen(fen: &str) -> Position {
