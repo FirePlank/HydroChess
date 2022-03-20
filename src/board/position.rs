@@ -82,7 +82,7 @@ pub enum PieceType {
     QUEEN,
     KING,
 }
-
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Side;
 impl Side {
     pub const WHITE: usize = 0;
@@ -320,6 +320,47 @@ impl Position {
             index += 1;
         }
         return position; 
+    }
+
+    pub fn is_attacked(&self, square: u32, side: usize) -> bool {
+        unsafe {
+            // attacked by white pawns
+            if (side == Side::WHITE) && (PAWN_ATTACKS[Side::BLACK as usize][square as usize] & self.bitboards[Piece::WhitePawn as usize].0) != 0{
+                return true;
+            }
+            // attacked by black pawns
+            else if (side == Side::BLACK) && (PAWN_ATTACKS[Side::WHITE as usize][square as usize] & self.bitboards[Piece::BlackPawn as usize].0) != 0{
+                return true;
+            }
+            // attacked by knight
+            if KNIGHT_ATTACKS[square as usize] & (if side == Side::WHITE { self.bitboards[Piece::WhiteKnight as usize].0 } else { self.bitboards[Piece::BlackKnight as usize].0 }) != 0 {
+                return true;
+            }
+            // attacked by king
+            if KING_ATTACKS[square as usize] & (if side == Side::WHITE { self.bitboards[Piece::WhiteKing as usize].0 } else { self.bitboards[Piece::BlackKing as usize].0 }) != 0 {
+                return true;
+            }
+            
+            return false;
+        }
+    }
+
+    pub fn show_attacked(&self, side: usize) {
+        for rank in 0..8 {
+            for file in 0..8 {
+                let square = rank * 8 + file;
+                if file == 0 {
+                    print!("{}  ", 8 - rank);
+                }
+                if self.is_attacked(square, side) {
+                    print!("1 ");
+                } else {
+                    print!("0 ");
+                }
+            }
+            println!();
+        }
+        println!("   a b c d e f g h\n");
     }
 }
 

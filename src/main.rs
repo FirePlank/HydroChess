@@ -20,7 +20,6 @@ use crate::board::position::*;
 fn main() {
     init_all();
     
-    let mut occupancy = Bitboard(0);
-    occupancy.set(Square::B4 as usize);
-    Bitboard(get_queen_attacks(Square::D4 as usize, occupancy)).show();
+    let pos = Position::from_fen("8/8/8/3K4/8/8/8/8 w - -");
+    pos.show_attacked(Side::WHITE as usize);
 }
