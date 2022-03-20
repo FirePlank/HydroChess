@@ -19,17 +19,6 @@ use crate::board::position::*;
 
 fn main() {
     init_all();
-
-    let mut pos = Position::new();
-    pos.enpassant = Square::A2;
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::A2 as usize);
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::B2 as usize);
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::C2 as usize);
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::D2 as usize);
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::E2 as usize);
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::F2 as usize);
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::G2 as usize);
-    pos.bitboards[Piece::WhitePawn as usize].set(Square::H2 as usize);
-    pos.bitboards[Piece::WhiteKnight as usize].set(Square::B1 as usize);
+    let mut pos = Position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
     pos.show(true);
 }
