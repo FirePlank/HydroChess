@@ -1,11 +1,6 @@
 use super::bitboard::*;
 use super::magic::*;
-
-pub struct Side;
-impl Side {
-    pub const WHITE: usize = 0;
-    pub const BLACK: usize = 1;
-}
+use super::position::*;
 
 // make A file be 0s
 const NOT_A_FILE: Bitboard = Bitboard(18374403900871474942);
@@ -290,7 +285,7 @@ pub fn fly_rook_attacks(square: i32, block: Bitboard) -> Bitboard {
 }
 
 // get bishop attacks
-pub fn get_bishop_attacks(square: usize, mut occupancy: &mut Bitboard) -> u64 {
+pub fn get_bishop_attacks(square: usize, mut occupancy: Bitboard) -> u64 {
     unsafe {
         // get bishop attacks assuming current board occupancy
         occupancy.0 &= BISHOP_MASKS[square];
@@ -303,7 +298,7 @@ pub fn get_bishop_attacks(square: usize, mut occupancy: &mut Bitboard) -> u64 {
     }
 }
 // get rook attacks
-pub fn get_rook_attacks(square: usize, mut occupancy: &mut Bitboard) -> u64 {
+pub fn get_rook_attacks(square: usize, mut occupancy: Bitboard) -> u64 {
     unsafe {
         // get rook attacks assuming current board occupancy
         occupancy.0 &= ROOK_MASKS[square];
