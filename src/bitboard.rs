@@ -33,7 +33,7 @@ impl Bitboard {
 
     // remove bit at given square, check if square is already set to 0
     pub fn pop(&mut self, square: usize) {
-        if self.0 & (1 << square) != 0 {
+        if self.0 & (1u64.wrapping_shl(square as u32)) != 0 {
             self.0 ^= 1 << square;
         }
     }
@@ -66,16 +66,12 @@ pub fn set_occupancy(index: i32, bits_in_mask: u32, attack_mask: &mut Bitboard) 
     for count in 0..bits_in_mask {
         // get LS1B index of attack mask
         let square = attack_mask.ls1b();
-        if square == -1 {
-            continue;
-        }
         // pop LS1B in attack map
         attack_mask.pop(square as usize);
-        
         // make sure occupancy is on board
         if index & (1 << count) != 0 {
             // populate occupancy map
-            occupancy.0 |= 1 << square;
+            occupancy.0 |= 1u64.wrapping_shl(square as u32);
         }
     }
 

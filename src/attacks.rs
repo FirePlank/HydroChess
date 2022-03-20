@@ -294,10 +294,11 @@ pub fn get_bishop_attacks(square: usize, mut occupancy: &mut Bitboard) -> u64 {
     unsafe {
         // get bishop attacks assuming current board occupancy
         occupancy.0 &= BISHOP_MASKS[square];
-        occupancy.0 *= MAGIC_BISHOP[square];
+        occupancy.0 = occupancy.0.wrapping_mul(MAGIC_BISHOP[square]);
         occupancy.0 >>= 64 - BISHOP_BITS[square];
-
+        
         // return bishop attacks
+        
         return BISHOP_ATTACKS[square][occupancy.0 as usize];
     }
 }
@@ -306,7 +307,7 @@ pub fn get_rook_attacks(square: usize, mut occupancy: &mut Bitboard) -> u64 {
     unsafe {
         // get rook attacks assuming current board occupancy
         occupancy.0 &= ROOK_MASKS[square];
-        occupancy.0 *= MAGIC_ROOK[square];
+        occupancy.0 = occupancy.0.wrapping_mul(MAGIC_ROOK[square]);
         occupancy.0 >>= 64 - ROOK_BITS[square];
 
         // return rook attacks
@@ -337,14 +338,13 @@ pub fn init_sliders_attacks(bishop: bool) {
             let occupancy_indicies = 1 << relevant_bits;
 
             // loop over occupancy indicies
-            let mut index = 0;
-            while index < occupancy_indicies {
+            for index in 0..occupancy_indicies {
                 if bishop {
                     // bishop
                     // init current occupancy variation
                     let occupancy = set_occupancy(index, relevant_bits, &mut attack_mask);
                     // init magic index
-                    let magic_index = (occupancy.0 * MAGIC_BISHOP[square]) >> (64 - BISHOP_BITS[square]);
+                    let magic_index = (occupancy.0.wrapping_mul(MAGIC_BISHOP[square])) >> (64 - BISHOP_BITS[square]);
                     // init bishop attacks
                     BISHOP_ATTACKS[square][magic_index as usize] = fly_bishop_attacks(square as i32, occupancy).0; 
                 } else {
@@ -352,11 +352,10 @@ pub fn init_sliders_attacks(bishop: bool) {
                     // init current occupancy variation
                     let occupancy = set_occupancy(index, relevant_bits, &mut attack_mask);
                     // init magic index
-                    let magic_index = (occupancy.0 * MAGIC_ROOK[square]) >> (64 - ROOK_BITS[square]);
+                    let magic_index = (occupancy.0.wrapping_mul(MAGIC_ROOK[square])) >> (64 - ROOK_BITS[square]);
                     // init rook attacks
                     ROOK_ATTACKS[square][magic_index as usize] = fly_rook_attacks(square as i32, occupancy).0;
                 }
-                index+=1;
             }
         }
     }
