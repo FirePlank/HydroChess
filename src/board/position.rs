@@ -5,7 +5,7 @@ use super::bitboard::*;
 use super::magic::*;
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Square {
     A8, B8, C8, D8, E8, F8, G8, H8,
     A7, B7, C7, D7, E7, F7, G7, H7,
@@ -15,7 +15,7 @@ pub enum Square {
     A3, B3, C3, D3, E3, F3, G3, H3,
     A2, B2, C2, D2, E2, F2, G2, H2,
     A1, B1, C1, D1, E1, F1, G1, H1,
-    NO_SQUARE
+    NoSquare
 }
 // square string list
 #[allow(dead_code)]
@@ -31,7 +31,9 @@ pub const SQUARE_COORDS: [&str;64] = [
 ];
 
 // ASCII pieces
-pub const ASCII_PIECES: &[u8] = "PNBRQKpnbrqk".as_bytes();
+pub const ASCII_PIECES: [&str;12] = [
+    "P", "N", "B", "R", "Q", "K", "p", "n", "b", "r", "q", "k",
+];
 // unicode pieces
 pub const UNICODE_PIECES: [&str;12] = ["♟", "♞", "♝", "♜", "♛", "♚", "♙", "♘", "♗", "♖", "♕", "♔"];
 // convert ASCII character pieces to encoded constants
@@ -105,16 +107,76 @@ impl Position {
             bitboards: [Bitboard(0); 12],
             occupancies: [Bitboard(0); 3],
             side: Side::WHITE,
-            enpassant: Square::NO_SQUARE,
-            castle: Castling::BK as u8,
+            enpassant: Square::NoSquare,
+            castle: 15, // <--- all castles allowed
         }
+    }
+    pub fn show(&self, unicode: bool) {
+        let pieces;
+        if unicode {
+            pieces = UNICODE_PIECES;
+        } else {
+            pieces = ASCII_PIECES;
+        }
+        // loop over board ranks
+        for rank in 0..8 {
+            for file in 0..8 {
+                // init square
+                let square = rank * 8 + file;
+
+                if file == 0 {
+                    print!("{}  ", 8 - rank);
+                }
+
+                // define piece
+                let mut piece: i8 = -1;
+                // loop over all the piece bitboards
+                for bb_piece in 0..Piece::BlackKing as usize {
+                    if self.bitboards[bb_piece].get(square) != 0{
+                        piece = bb_piece as i8;
+                        break;
+                    }
+                }
+
+                if piece == -1 {
+                    print!(". ");
+                } else {
+                    print!("{} ", pieces[piece as usize]);
+                }
+            }
+            // print new line every rank
+            println!();
+        }
+        // print board files
+        println!("   a b c d e f g h\n");
+        // print side to move
+        println!("Side to move: {}", if self.side == Side::WHITE { "White" } else { "Black" });
+        // print enpassant
+        println!("Enpassant: {}", if self.enpassant == Square::NoSquare { "None" } else { SQUARE_COORDS[self.enpassant as usize] });
+        // print castling rights
+        println!("Castling: {}", if self.castle == 0 { "None".to_string() } else {
+            let mut castling = String::new();
+            if self.castle & Castling::WK as u8 != 0 {
+                castling.push_str("K");
+            } else { castling.push_str("-"); }
+            if self.castle & Castling::WQ as u8 != 0 {
+                castling.push_str("Q");
+            } else { castling.push_str("-"); }
+            if self.castle & Castling::BK as u8 != 0 {
+                castling.push_str("k");
+            } else { castling.push_str("-"); }
+            if self.castle & Castling::BQ as u8 != 0 {
+                castling.push_str("q");
+            } else { castling.push_str("-"); }
+            castling
+        });
     }
 }
 
-pub static mut POSITION: Position = Position {
-    bitboards: [Bitboard(0); 12],
-    occupancies: [Bitboard(0); 3],
-    side: Side::WHITE,
-    enpassant: Square::NO_SQUARE,
-    castle: Castling::BK as u8,
-};
+// pub static mut POSITION: Position = Position {
+//     bitboards: [Bitboard(0); 12],
+//     occupancies: [Bitboard(0); 3],
+//     side: Side::WHITE,
+//     enpassant: Square::NoSquare,
+//     castle: 15,
+// };

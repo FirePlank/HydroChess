@@ -20,20 +20,16 @@ use crate::board::position::*;
 fn main() {
     init_all();
 
-    let pos = Position::new();
-    let mut board = pos.bitboards[Piece::WhitePawn as usize];
-    board.set(Square::E2 as usize);
-    board.show();
-
-    // print piece
-    println!("Piece: {}", ASCII_PIECES[Piece::WhitePawn as usize] as char);
-    println!("Unicode: {}", UNICODE_PIECES[Piece::WhitePawn as usize]);
-
-    let piece;
-    match CHAR_PIECES.get("K") {
-        Some(a) => piece = a,
-        None => piece = &Piece::BlackBishop
-    };
-
-    println!("{:?}", piece);
+    let mut pos = Position::new();
+    pos.enpassant = Square::A2;
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::A2 as usize);
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::B2 as usize);
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::C2 as usize);
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::D2 as usize);
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::E2 as usize);
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::F2 as usize);
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::G2 as usize);
+    pos.bitboards[Piece::WhitePawn as usize].set(Square::H2 as usize);
+    pos.bitboards[Piece::WhiteKnight as usize].set(Square::B1 as usize);
+    pos.show(true);
 }
