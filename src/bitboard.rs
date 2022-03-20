@@ -59,7 +59,7 @@ impl Bitboard {
     }
 }
 
-pub fn set_occupancy(index: i32, bits_in_mask: u32, attack_mask: &mut Bitboard) -> Bitboard {
+pub fn set_occupancy(index: i32, bits_in_mask: u32, mut attack_mask: Bitboard) -> Bitboard {
     let mut occupancy = Bitboard(0); // occupancy map
 
     // loop over the range of bits within attack mask

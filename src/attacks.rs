@@ -342,7 +342,7 @@ pub fn init_sliders_attacks(bishop: bool) {
                 if bishop {
                     // bishop
                     // init current occupancy variation
-                    let occupancy = set_occupancy(index, relevant_bits, &mut attack_mask);
+                    let occupancy = set_occupancy(index, relevant_bits, attack_mask);
                     // init magic index
                     let magic_index = (occupancy.0.wrapping_mul(MAGIC_BISHOP[square])) >> (64 - BISHOP_BITS[square]);
                     // init bishop attacks
@@ -350,7 +350,7 @@ pub fn init_sliders_attacks(bishop: bool) {
                 } else {
                     // rook
                     // init current occupancy variation
-                    let occupancy = set_occupancy(index, relevant_bits, &mut attack_mask);
+                    let occupancy = set_occupancy(index, relevant_bits, attack_mask);
                     // init magic index
                     let magic_index = (occupancy.0.wrapping_mul(MAGIC_ROOK[square])) >> (64 - ROOK_BITS[square]);
                     // init rook attacks
