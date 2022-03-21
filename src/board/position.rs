@@ -162,11 +162,11 @@ impl Position {
         // print board files
         println!("   a b c d e f g h\n");
         // print side to move
-        println!("Side to move: {}", if self.side == Side::WHITE { "White" } else { "Black" });
+        println!("   Side to move: {}", if self.side == Side::WHITE { "White" } else { "Black" });
         // print enpassant
-        println!("Enpassant: {}", if self.enpassant == Square::NoSquare { "None" } else { SQUARE_COORDS[self.enpassant as usize] });
+        println!("   Enpassant: {}", if self.enpassant == Square::NoSquare { "None" } else { SQUARE_COORDS[self.enpassant as usize] });
         // print castling rights
-        println!("Castling: {}", if self.castle == 0 { "None".to_string() } else {
+        println!("   Castling: {}", if self.castle == 0 { "None".to_string() } else {
             let mut castling = String::new();
             if self.castle & Castling::WK as u8 != 0 {
                 castling.push_str("K");
@@ -183,9 +183,9 @@ impl Position {
             castling
         });
         // print halfmove clock
-        println!("Halfmove clock: {}", self.halfmove);
+        println!("   Halfmove clock: {}", self.halfmove);
         // print fullmove number
-        println!("Fullmove number: {}", self.fullmove);
+        println!("   Fullmove number: {}\n", self.fullmove);
     }
 
     pub fn from_fen(fen: &str) -> Position {
@@ -314,11 +314,11 @@ impl Position {
         }
 
         // loop over white pieces bitboards
-        for piece in 0..7 {
+        for piece in Piece::WhitePawn as usize..Piece::WhiteKing as usize+1 {
             position.occupancies[Side::WHITE].0 |= position.bitboards[piece].0;
         }
         // loop over black pieces bitboards
-        for piece in 7..12 {
+        for piece in Piece::BlackPawn as usize..Piece::BlackKing as usize+1 {
             position.occupancies[Side::BLACK].0 |= position.bitboards[piece].0;
         }
         // init all occupancies

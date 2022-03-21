@@ -23,9 +23,9 @@ use r#move::*;
 fn main() {
     init_all();
     
-    let pos = Position::from_fen("r3k2r/4nq1P/1n2N1b1/1b6/4N3/5B2/1pRQPPPP/2BK4 w kq - 0 1");
-    pos.show(true);
-    pos.gen_moves(Side::WHITE as usize);
+    let pos = Position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    pos.show(false);
+    pos.gen_moves(Side::BLACK as usize);
     
     
     // pos.occupancies[Side::BOTH as usize].show();
