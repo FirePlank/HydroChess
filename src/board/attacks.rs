@@ -349,7 +349,7 @@ pub fn init_sliders_attacks(bishop: bool) {
             ROOK_MASKS[square] = mask_rook_attacks(square as i32).0;
 
             // init current mask
-            let mut attack_mask: Bitboard;
+            let attack_mask: Bitboard;
             if bishop {
                 attack_mask = Bitboard(BISHOP_MASKS[square]);
             } else {

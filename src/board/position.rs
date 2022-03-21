@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use super::attacks::*;
 use super::bitboard::*;
-use super::magic::*;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -82,7 +81,7 @@ pub enum PieceType {
     QUEEN,
     KING,
 }
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Side;
 impl Side {
     pub const WHITE: usize = 0;
@@ -102,8 +101,10 @@ pub struct Position {
 impl Position {
     pub fn new() -> Position {
         Position {
-            bitboards: [Bitboard(0); 12],
-            occupancies: [Bitboard(0); 3],
+            // initialize bitboards to the default chess position at the start of a standard game
+            bitboards: [Bitboard(71776119061217280), Bitboard(4755801206503243776), Bitboard(2594073385365405696), Bitboard(9295429630892703744), Bitboard(576460752303423488),
+                        Bitboard(1152921504606846976), Bitboard(65280), Bitboard(66), Bitboard(36), Bitboard(129), Bitboard(8), Bitboard(16)],
+            occupancies: [Bitboard(18446462598732906240), Bitboard(255), Bitboard(18446462598732906495)],
             side: Side::WHITE,
             enpassant: Square::NoSquare,
             castle: 15, // <--- all castles allowed
@@ -199,36 +200,28 @@ impl Position {
                 for i in x.chars() {
                     match i {
                         '1' => {
-                            square += 1;file += 1;
-                            square = rank * 8 + file;
+                            file += 1;square = rank * 8 + file;
                         },
                         '2' => {
-                            square += 2;file += 2;
-                            square = rank * 8 + file;
+                            file += 2;square = rank * 8 + file;
                         },
                         '3' => {
-                            square += 3;file += 3;
-                            square = rank * 8 + file;
+                            file += 3;square = rank * 8 + file;
                         },
                         '4' => {
-                            square += 4;file += 4;
-                            square = rank * 8 + file;
+                            file += 4;square = rank * 8 + file;
                         },
                         '5' => {
-                            square += 5;file += 5;
-                            square = rank * 8 + file;
+                            file += 5;square = rank * 8 + file;
                         },
                         '6' => {
-                            square += 6;file += 6;
-                            square = rank * 8 + file;
+                            file += 6;square = rank * 8 + file;
                         },
                         '7' => {
-                            square += 7;file += 7;
-                            square = rank * 8 + file;
+                            file += 7;square = rank * 8 + file;
                         },
                         '8' => {
-                            square += 8;file += 8;
-                            square = rank * 8 + file;
+                            file += 8;square = rank * 8 + file;
                         },
                         'P' => {
                             position.bitboards[Piece::WhitePawn as usize].set(square);
