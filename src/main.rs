@@ -7,7 +7,7 @@ use board::*;
 mod r#move;
 use r#move::*;
 
-// use std::time::Instant;
+//use std::time::Instant;
 // use std::io;
 // use std::io::Write;
 // use std::io::stdin;
@@ -23,9 +23,10 @@ use r#move::*;
 fn main() {
     init_all();
 
-    let move_ = Move(encode_move(Square::E2 as u8, Square::E4 as u8, Piece::WhitePawn as u8, Piece::WhiteQueen as u8, 1, 1, 1, 1));
-    
+    let mut position = Position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    position.show(false);
+    //let move_ = Move(encode_move(Square::E2 as u8, Square::E4 as u8, Piece::WhitePawn as u8, Piece::WhiteQueen as u8, 1, 1, 1, 1));
     let mut move_list = MoveList::new();
-    move_list.add(move_.0);
+    position.generate_moves(&mut move_list);
     move_list.show();
 }

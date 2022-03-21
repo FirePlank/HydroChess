@@ -51,7 +51,7 @@ impl Bitboard {
     // get least significant 1st bit index
     pub fn ls1b(&self) -> isize {
         if self.0 != 0 {
-            return ((self.0 as i64 & -(self.0 as i64))-1).count_ones() as isize;
+            return ((self.0 as i64 & (self.0 as i64).wrapping_neg()).wrapping_sub(1)).count_ones() as isize;
         } else {
             // illegal index
             return -1;
