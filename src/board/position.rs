@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::attacks::*;
 use super::bitboard::*;
+use crate::r#move::encode::*;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -89,6 +90,7 @@ impl Side {
     pub const BOTH: usize = 2;
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Position {
     pub bitboards: [Bitboard; 12],
     pub occupancies: [Bitboard; 3],
@@ -123,6 +125,39 @@ impl Position {
             fullmove: 0
         }
     }
+
+
+    pub fn make(&mut self, move_: u32, move_flag: u8) {
+        // quiet moves
+        let capture = capture(move_);
+        if move_flag == 0 {
+            // preserve
+            let a = self.clone();
+
+            // parse move
+            let source_square = source(move_);
+            let target_square = target(move_);
+            let piece = piece(move_);
+            let promoted = promoted(move_);
+            let enpassant = enpassant(move_);
+            let double = double(move_);
+            let castling = castling(move_);
+
+            // move piece
+            self.bitboards[piece as usize].pop(source_square as usize);
+            self.bitboards[piece as usize].set(target_square as usize);
+        } else {
+            if capture == 1 {
+                self.make(move_, 0);
+            } else { return; }
+        }
+    }
+
+    pub fn unmake(&mut self) {
+        self.side = if self.side == Side::WHITE { Side::BLACK } else { Side::WHITE };
+
+    }
+
     pub fn show(&self, unicode: bool) {
         let pieces;
         if unicode {
