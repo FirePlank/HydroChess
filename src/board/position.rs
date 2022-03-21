@@ -319,25 +319,50 @@ impl Position {
             }
             index += 1;
         }
+
+        // loop over white pieces bitboards
+        for piece in 0..7 {
+            position.occupancies[Side::WHITE].0 |= position.bitboards[piece].0;
+        }
+        // loop over black pieces bitboards
+        for piece in 7..12 {
+            position.occupancies[Side::BLACK].0 |= position.bitboards[piece].0;
+        }
+        // init all occupancies
+        position.occupancies[Side::BOTH].0 |= position.occupancies[Side::WHITE].0;
+        position.occupancies[Side::BOTH].0 |= position.occupancies[Side::BLACK].0;
+        
         return position; 
     }
 
-    pub fn is_attacked(&self, square: u32, side: usize) -> bool {
+    pub fn is_attacked(&self, square: usize, side: usize) -> bool {
         unsafe {
             // attacked by white pawns
-            if (side == Side::WHITE) && (PAWN_ATTACKS[Side::BLACK as usize][square as usize] & self.bitboards[Piece::WhitePawn as usize].0) != 0{
+            if (side == Side::WHITE) && (PAWN_ATTACKS[Side::BLACK as usize][square] & self.bitboards[Piece::WhitePawn as usize].0) != 0{
                 return true;
             }
             // attacked by black pawns
-            else if (side == Side::BLACK) && (PAWN_ATTACKS[Side::WHITE as usize][square as usize] & self.bitboards[Piece::BlackPawn as usize].0) != 0{
+            else if (side == Side::BLACK) && (PAWN_ATTACKS[Side::WHITE as usize][square] & self.bitboards[Piece::BlackPawn as usize].0) != 0{
                 return true;
             }
-            // attacked by knight
-            if KNIGHT_ATTACKS[square as usize] & (if side == Side::WHITE { self.bitboards[Piece::WhiteKnight as usize].0 } else { self.bitboards[Piece::BlackKnight as usize].0 }) != 0 {
+            // attacked by knights
+            if KNIGHT_ATTACKS[square] & (if side == Side::WHITE { self.bitboards[Piece::WhiteKnight as usize].0 } else { self.bitboards[Piece::BlackKnight as usize].0 }) != 0 {
+                return true;
+            }
+            // attacked by bishops
+            if get_bishop_attacks(square, self.occupancies[Side::BOTH]) & (if side == Side::WHITE { self.bitboards[Piece::WhiteBishop as usize].0 } else { self.bitboards[Piece::BlackBishop as usize].0 }) != 0 {
+                return true;
+            }
+            // attacked by rooks
+            if get_rook_attacks(square, self.occupancies[Side::BOTH]) & (if side == Side::WHITE { self.bitboards[Piece::WhiteRook as usize].0 } else { self.bitboards[Piece::BlackRook as usize].0 }) != 0 {
+                return true;
+            }
+            // attacked by queens
+            if get_queen_attacks(square, self.occupancies[Side::BOTH]) & (if side == Side::WHITE { self.bitboards[Piece::WhiteQueen as usize].0 } else { self.bitboards[Piece::BlackQueen as usize].0 }) != 0 {
                 return true;
             }
             // attacked by king
-            if KING_ATTACKS[square as usize] & (if side == Side::WHITE { self.bitboards[Piece::WhiteKing as usize].0 } else { self.bitboards[Piece::BlackKing as usize].0 }) != 0 {
+            if KING_ATTACKS[square] & (if side == Side::WHITE { self.bitboards[Piece::WhiteKing as usize].0 } else { self.bitboards[Piece::BlackKing as usize].0 }) != 0 {
                 return true;
             }
             
