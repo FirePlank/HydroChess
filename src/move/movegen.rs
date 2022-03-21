@@ -1,10 +1,75 @@
 use crate::board::bitboard::*;
 use crate::board::attacks::*;
 use crate::board::position::*;
+use crate::r#move::encode::*;
+pub struct Move(pub u32);
 
-pub struct Move {
-    m: u32,
-    score: i16,
+pub struct MoveList {
+    pub moves: [u32; 256],
+    pub count: i32,
+}
+
+/*
+    WhitePawn,
+    WhiteKnight,
+    WhiteBishop,
+    WhiteRook,
+    WhiteQueen,
+    WhiteKing,
+    BlackPawn,
+    BlackKnight,
+    BlackBishop,
+    BlackRook,
+    BlackQueen,
+    BlackKing,
+*/
+
+// promoted pieces in string format, easily indexable with Piece enum as usize
+pub const PROMOTED_PIECES: [& str; 11] = ["0", "n", "b", "r", "q", "0", "0", "n", "b", "r", "q"];
+
+impl Move {
+    pub fn show_move(&self) {
+        let source = source(self.0);
+        let target = target(self.0);
+        let promoted = promoted(self.0);
+        println!("{}{}{}", SQUARE_COORDS[source as usize], SQUARE_COORDS[target as usize], PROMOTED_PIECES[promoted as usize]);
+    }
+}
+
+impl MoveList {
+    pub fn new() -> MoveList {
+        MoveList {
+            moves: [0; 256],
+            count: 0,
+        }
+    }
+    pub fn show(&self) {
+        println!("\n    move    piece    capture    double    enpassant    castling\n");
+        // loop over moves within a move list
+        for move_count in 0..self.count {
+            // init move
+            let move_ = self.moves[move_count as usize];
+            let source = source(move_);
+            let target = target(move_);
+            let piece = piece(move_);
+            let promoted = promoted(move_);
+            let capture = capture(move_);
+            let double = double(move_);
+            let enpassant = enpassant(move_);
+            let castling = castling(move_);
+
+            // print moves
+            println!("    {}{}{}   {}          {}         {}         {}            {}", SQUARE_COORDS[source as usize], SQUARE_COORDS[target as usize], PROMOTED_PIECES[promoted as usize], ASCII_PIECES[piece as usize], capture, double, enpassant, castling);
+        }
+        // print total number of moves
+        println!("\n    Total number of moves: {}", self.count);
+    }
+    pub fn add(&mut self, move_: u32) {
+        // store move
+        self.moves[self.count as usize] = move_;
+        // increment move count
+        self.count += 1;
+    }
 }
 
 impl Position {
@@ -389,4 +454,6 @@ impl Position {
             }
         }
     }
+
+
 }

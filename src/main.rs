@@ -22,24 +22,10 @@ use r#move::*;
 
 fn main() {
     init_all();
-    
-    let move_ = encode_move(Square::E2 as u8, Square::E4 as u8, Piece::WhitePawn as u8, Piece::WhiteQueen as u8, 1, 1, 1, 1);
-    
-    let source_square = source(move_);
-    let target_square = target(move_);
-    let piece = piece(move_);
-    let promoted = promoted(move_);
-    let capture = capture(move_);
-    let double = double(move_);
-    let enpassant = enpassant(move_);
-    let castling = castling(move_);
 
-    println!("source square: {}", SQUARE_COORDS[source_square as usize]);
-    println!("target square: {}", SQUARE_COORDS[target_square as usize]);
-    println!("piece: {}", ASCII_PIECES[piece as usize]);
-    println!("promoted: {}", ASCII_PIECES[promoted as usize]);
-    println!("capture: {}", capture);
-    println!("double: {}", double);
-    println!("enpassant: {}", enpassant);
-    println!("castling: {}", castling);
+    let move_ = Move(encode_move(Square::E2 as u8, Square::E4 as u8, Piece::WhitePawn as u8, Piece::WhiteQueen as u8, 1, 1, 1, 1));
+    
+    let mut move_list = MoveList::new();
+    move_list.add(move_.0);
+    move_list.show();
 }
