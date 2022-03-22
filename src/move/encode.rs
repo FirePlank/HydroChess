@@ -10,17 +10,17 @@ pub fn source(move_: u32) -> u8 {
 
 // extract target square
 pub fn target(move_: u32) -> u8 {
-    return ((move_ >> 6) & 0x3f) as u8;
+    return ((move_ & 0xfc0) >> 6) as u8;
 }
 
 // extract piece
-pub fn piece(move_: u32) -> u8 {
-    return ((move_ >> 12) & 0x7) as u8;
+pub fn get_piece(move_: u32) -> u8 {
+    return ((move_ & 0xf000) >> 12) as u8;
 }
 
 // extract promoted piece
 pub fn promoted(move_: u32) -> u8 {
-    return ((move_ >> 16) & 0x7) as u8;
+    return ((move_ & 0xf0000) >> 16) as u8;
 }
 
 // extract capture flag

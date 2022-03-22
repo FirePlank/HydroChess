@@ -29,7 +29,7 @@ pub struct MoveList {
 pub const PROMOTED_PIECES: [& str; 11] = [" ", "n", "b", "r", "q", " ", " ", "n", "b", "r", "q"];
 
 impl Move {
-    pub fn show_move(&self) {
+    pub fn show(&self) {
         let source = source(self.0);
         let target = target(self.0);
         let promoted = promoted(self.0);
@@ -49,14 +49,14 @@ impl MoveList {
             println!("The move list is empty.");
             return;
         }
-        println!("\n    move    piece    capture    double    enpassant    castling\n");
+        println!("\n    move    piece    capture    double    enpassant    castling    promoted\n");
         // loop over moves within a move list
         for move_count in 0..self.count {
             // init move
             let move_ = self.moves[move_count as usize];
             let source = source(move_);
             let target = target(move_);
-            let piece = piece(move_);
+            let piece = get_piece(move_);
             let promoted = promoted(move_);
             let capture = capture(move_);
             let double = double(move_);
@@ -64,7 +64,7 @@ impl MoveList {
             let castling = castling(move_);
 
             // print moves
-            println!("    {}{}{}   {}          {}         {}         {}            {}", SQUARE_COORDS[source as usize], SQUARE_COORDS[target as usize], PROMOTED_PIECES[promoted as usize], ASCII_PIECES[piece as usize], capture, double, enpassant, castling);
+            println!("    {}{}{}   {}          {}         {}         {}            {}           {}", SQUARE_COORDS[source as usize], SQUARE_COORDS[target as usize], PROMOTED_PIECES[promoted as usize], ASCII_PIECES[piece as usize], capture, double, enpassant, castling, promoted);
         }
         // print total number of moves
         println!("\n    Total number of moves: {}", self.count);
@@ -78,7 +78,7 @@ impl MoveList {
 }
 
 impl Position {
-    pub fn generate_moves(&self, move_list: &mut MoveList) {
+    pub fn generate_pseudo_moves(&self, move_list: &mut MoveList) {
         // define source & target squares
         let mut source_square;
         let mut target_square;
@@ -178,7 +178,7 @@ impl Position {
                             }
                         }
 
-                        // queen self.side castling is available
+                        // queen castling is available
                         if (self.castle & Castling::WQ as u8) != 0 {
                             // make sure squares between king and rook are empty
                             if (self.occupancies[Side::BOTH as usize].get(Square::D1 as usize) == 0) && (self.occupancies[Side::BOTH as usize].get(Square::C1 as usize) == 0) && (self.occupancies[Side::BOTH as usize].get(Square::B1 as usize) == 0) {
@@ -220,6 +220,7 @@ impl Position {
 
                                     // two squares ahead pawn move
                                     if (source_square >= Square::A7 as usize && source_square <= Square::H7 as usize) && (self.occupancies[Side::BOTH as usize].get(target_square + 8) == 0) {
+                                        target_square = source_square + 16;
                                         move_list.add(encode_move(source_square as u8, target_square as u8, piece as u8, 0, 0, 1, 0, 0));
                                     }
                                 }
@@ -332,6 +333,7 @@ impl Position {
                 let piece_to_check;
                 if self.side == Side::WHITE as usize { piece_to_check = Piece::WhiteBishop as usize;
                 } else { piece_to_check = Piece::BlackBishop as usize; }
+                
                 if piece == piece_to_check {
                     while bitboard.0 != 0 {
                         // get least significant 1st bit index
@@ -349,7 +351,7 @@ impl Position {
                                 move_list.add(encode_move(source_square as u8, target_square as u8, piece as u8, 0, 0, 0, 0, 0));
                             } else {
                                 // add move into a move list
-                                move_list.add(encode_move(source_square as u8, target_square as u8, piece as u8, 0, 1, 0, 0, 0));                        
+                                move_list.add(encode_move(source_square as u8, target_square as u8, piece as u8, 0, 1, 0, 0, 0));     
                             }
                             // pop LS1B in bitboard
                             attacks.pop(target_square);
@@ -456,7 +458,7 @@ impl Position {
         }
     }
 
-    pub fn generate_captures(&self, move_list: &mut MoveList) {
+    pub fn generate_pseudo_captures(&self, move_list: &mut MoveList) {
         // define source & target squares
         let mut source_square;
         let mut target_square;

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::attacks::*;
 use super::bitboard::*;
+use crate::r#move::PROMOTED_PIECES;
 use crate::r#move::encode::*;
 use crate::r#move::movegen::Move;
 
@@ -48,7 +49,7 @@ lazy_static! {
         ("a3", Square::A3),("b3", Square::B3),("c3", Square::C3),("d3", Square::D3),("e3", Square::E3),("f3", Square::F3),("g3", Square::G3),("h3", Square::H3),
         ("a2", Square::A2),("b2", Square::B2),("c2", Square::C2),("d2", Square::D2),("e2", Square::E2),("f2", Square::F2),("g2", Square::G2),("h2", Square::H2),
         ("a1", Square::A1),("b1", Square::B1),("c1", Square::C1),("d1", Square::D1),("e1", Square::E1),("f1", Square::F1),("g1", Square::G1),("h1", Square::H1),
-    ]); 
+    ]);
 }
 
 // castling rights
@@ -58,6 +59,17 @@ pub enum Castling {
     BK = 4,
     BQ = 8,
 }
+// castling rights update constants
+const CASTLING_RIGHTS: [u8;64] = [
+    7, 15, 15, 15,  3, 15, 15, 11,
+   15, 15, 15, 15, 15, 15, 15, 15,
+   15, 15, 15, 15, 15, 15, 15, 15,
+   15, 15, 15, 15, 15, 15, 15, 15,
+   15, 15, 15, 15, 15, 15, 15, 15,
+   15, 15, 15, 15, 15, 15, 15, 15,
+   15, 15, 15, 15, 15, 15, 15, 15,
+   13, 15, 15, 15, 12, 15, 15, 14,
+];
 
 // pieces
 #[derive(Debug)]
@@ -91,7 +103,7 @@ impl Side {
     pub const BOTH: usize = 2;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Position {
     pub bitboards: [Bitboard; 12],
     pub occupancies: [Bitboard; 3],
@@ -100,6 +112,8 @@ pub struct Position {
     pub castle: u8,
     pub halfmove: u16,
     pub fullmove: u16,
+    pub hash: u64,
+    pub pawn_hash: u64,
     pub halfmove_clocks_stack: Vec<u16>,
     pub captured_pieces_stack: Vec<u8>,
     pub castling_rights_stack: Vec<u8>,
@@ -119,6 +133,8 @@ impl Position {
             castle: 15, // <--- all castles allowed
             halfmove: 0,
             fullmove: 0,
+            hash: 0,
+            pawn_hash: 0,
             halfmove_clocks_stack: Vec::with_capacity(32),
             captured_pieces_stack: Vec::with_capacity(32),
             castling_rights_stack: Vec::with_capacity(32),
@@ -136,6 +152,8 @@ impl Position {
             castle: 0,
             halfmove: 0,
             fullmove: 0,
+            hash: 0,
+            pawn_hash: 0,
             halfmove_clocks_stack: Vec::with_capacity(32),
             captured_pieces_stack: Vec::with_capacity(32),
             castling_rights_stack: Vec::with_capacity(32),
@@ -145,37 +163,11 @@ impl Position {
         }
     }
 
-
-    pub fn make(&mut self, move_: u32, move_flag: u8) {
-        // quiet moves
-        let capture = capture(move_);
-        if move_flag == 0 {
-            // preserve
-            let a = self.clone();
-
-            // parse move
-            let source_square = source(move_);
-            let target_square = target(move_);
-            let piece = piece(move_);
-            let promoted = promoted(move_);
-            let enpassant = enpassant(move_);
-            let double = double(move_);
-            let castling = castling(move_);
-
-            // move piece
-            self.bitboards[piece as usize].pop(source_square as usize);
-            self.bitboards[piece as usize].set(target_square as usize);
-        } else {
-            if capture == 1 {
-                self.make(move_, 0);
-            } else { return; }
-        }
-    }
-
     // Moves `piece` from the field specified by `from` to the field specified by `to` with the specified `color`, also updates occupancy and incremental values.
     pub fn move_piece(&mut self, color: u8, piece: u8, from: usize, to: usize) {
         //self.pieces[color as usize][piece as usize] ^= (1u64 << from) | (1u64 << to);
         self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
+        self.occupancies[2].0 ^= (1u64 << from) | (1u64 << to);
 
         // piece table
         self.bitboards[piece as usize].pop(to);
@@ -187,29 +179,220 @@ impl Position {
         //self.pst_scores[color as usize][ENDING as usize] += pst::get_value(piece, color, ENDING, to);
     }
 
-    pub fn unmake(&mut self, move_: u32) {
-        self.side = self.side^1;
-        let from = source(move_);
-        let to = target(move_);
-        let piece = piece(move_);
+    // Adds `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
+    pub fn add_piece(&mut self, color: u8, piece: u8, field: u8) {
+        // self.pieces[color as usize][piece as usize] |= 1u64 << field;
+        self.occupancies[color as usize].0 |= 1u64 << field;
+        self.occupancies[2].0 |= 1u64 << field;
+        self.bitboards[piece as usize].set(field as usize);
+        //self.material_scores[color as usize] += unsafe { parameters::PIECE_VALUE[piece as usize] };
+
+        // self.pst_scores[color as usize][OPENING as usize] += pst::get_value(piece, color, OPENING, field);
+        // self.pst_scores[color as usize][ENDING as usize] += pst::get_value(piece, color, ENDING, field);
+    }
+
+    // Removes `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
+    pub fn remove_piece(&mut self, color: u8, piece: u8, field: u8) {
+        //self.pieces[color as usize][piece as usize] &= !(1u64 << field);
+        self.occupancies[color as usize].0 &= !(1u64 << field);
+        self.occupancies[2].0 &= !(1u64 << field);
+        self.bitboards[piece as usize].pop(field as usize);
+        // self.material_scores[color as usize] -= unsafe { parameters::PIECE_VALUE[piece as usize] };
+
+        // self.pst_scores[color as usize][OPENING as usize] -= pst::get_value(piece, color, OPENING, field);
+        // self.pst_scores[color as usize][ENDING as usize] -= pst::get_value(piece, color, ENDING, field);
+    }
+
+    pub fn make(&mut self, move_: u32) -> bool{
+        let opp_color = self.side^1;
+        // parse move
+        let source_square = source(move_);
+        let target_square = target(move_);
+        let capture = capture(move_);
+        let piece = get_piece(move_);
         let promoted = promoted(move_);
         let enpassant = enpassant(move_);
         let double = double(move_);
         let castling = castling(move_);
-        let capture = capture(move_);
 
-        if double == 1 {
-            self.move_piece(self.side as u8, piece, from as usize, to as usize);
+        self.halfmove_clocks_stack.push(self.halfmove);
+        self.castling_rights_stack.push(self.castle);
+        self.en_passant_stack.push(self.enpassant);
+        self.hash_stack.push(self.hash);
+        self.pawn_hash_stack.push(self.pawn_hash);
+
+        // move piece
+        self.move_piece(self.side as u8, piece as u8, target_square as usize, source_square as usize);
+
+        if capture != 0 {
+            // pick up bitboard piece index ranges depending on side
+            let start_piece;
+            let end_piece;
+
+            if self.side == 0 {
+                // white to move
+                start_piece = Piece::BlackPawn as usize;
+                end_piece = Piece::BlackKing as usize;
+            } else {
+                // black to move
+                start_piece = Piece::WhitePawn as usize;
+                end_piece = Piece::WhiteKing as usize;
+            }
+
+            // loop over bitboard opposite to the current side to move
+            for bb_piece in start_piece..end_piece+1 {
+                // if there is a piece on the target square
+                if self.bitboards[bb_piece].get(target_square as usize) != 0 {
+                    // remove it from corresponding bitboard
+                    self.captured_pieces_stack.push(bb_piece as u8);
+                    self.remove_piece(opp_color as u8, bb_piece as u8, target_square as u8);
+                    break;
+                }
+            }
+        // handle pawn promotions
+        } if promoted != 0 {
+            // erase the pawn from the target square
+            self.remove_piece(self.side as u8, if self.side == 0 { Piece::WhitePawn as u8 } else { Piece::BlackPawn as u8 }, target_square);
+            // set up promoted piece on chess board
+            self.add_piece(self.side as u8,  promoted, target_square);
+        }
+        // handle enpassant captures
+        if enpassant != 0 {
+            // erase the pawn from the target square
+            if self.side == 0 {
+                self.remove_piece(self.side as u8, Piece::BlackPawn as u8, target_square + 8);
+            } else {
+                self.remove_piece(self.side as u8, Piece::WhitePawn as u8, target_square - 8);
+            }
+        }
+        self.enpassant = Square::NoSquare;
+
+        // handle double pawn push
+        if double != 0 {
+            // set enpassant square
+            if self.side == 0 {
+                // using transmute as its a few hudred nanoseconds faster than indexing a list with the squares lol
+                self.enpassant = unsafe { std::mem::transmute(target_square + 8) };
+            } else {
+                self.enpassant = unsafe { std::mem::transmute(target_square - 8) };
+            }
         }
 
-        // if 1==1 {}
+        // handle castling
+        if castling != 0 {
+            // move the rook
+            match target_square {
+                62 => {
+                    // move H rook white
+                    self.move_piece(0, Piece::WhiteRook as u8, Square::F1 as usize, Square::H1 as usize);
+                },
+                58 => {
+                    // move A rook white
+                    self.move_piece(0, Piece::WhiteRook as u8, Square::D1 as usize, Square::A1 as usize);
+                },
+                6 => {
+                    // move H rook black
+                    self.move_piece(1, Piece::BlackRook as u8, Square::F8 as usize, Square::H8 as usize);
+                },
+                2 => {
+                    // move A rook black
+                    self.move_piece(1, Piece::BlackRook as u8, Square::D8 as usize, Square::A8 as usize);
+                },
+                _ => panic!("Invalid castling move: {}", target_square)
+            }
+        }
+
+        // update castling rights
+        self.castle &= CASTLING_RIGHTS[source_square as usize];
+        self.castle &= CASTLING_RIGHTS[target_square as usize];
+
+        // change position variables
+        self.side = opp_color;
+        if self.side == 0 { 
+            self.fullmove += 1; 
+            // check if the move is illegal
+            if self.is_attacked(self.bitboards[Piece::BlackKing as usize].ls1b() as usize, 0) {
+                // move is illegal
+                return false;
+            }
+        } else {
+            // check if the move is illegal
+            if self.is_attacked(self.bitboards[Piece::WhiteKing as usize].ls1b() as usize, 1) {
+                // move is illegal
+                return false;
+            }
+        }
+        return true;
+    }
+
+    pub fn unmake(&mut self, move_: u32) {
+        self.side = self.side^1;
+        let opp_color = self.side^1;
+
+        // parse move
+        let from = source(move_);
+        let to = target(move_);
+        let piece = get_piece(move_);
+        let promoted = promoted(move_);
+        let enpassant = enpassant(move_);
+        let castling = castling(move_);
+        let capture = capture(move_);
 
         self.halfmove = self.halfmove_clocks_stack.pop().unwrap();
         self.castle = self.castling_rights_stack.pop().unwrap();
         self.enpassant = self.en_passant_stack.pop().unwrap();
-        //self.hash = self.hash_stack.pop().unwrap();
-        //self.pawn_hash = self.pawn_hash_stack.pop().unwrap();
+        self.hash = self.hash_stack.pop().unwrap();
+        self.pawn_hash = self.pawn_hash_stack.pop().unwrap();
 
+        // check flags to determine how to proceed with undoing the move
+        if castling != 0 {
+            match to {
+                62 => {
+                    self.move_piece(0, Piece::WhiteKing as u8, 60, 62);
+                    self.move_piece(0, Piece::WhiteRook as u8, 63, 61);
+                },
+                58 => {
+                    self.move_piece(0, Piece::WhiteKing as u8, 60, 58);
+                    self.move_piece(0, Piece::WhiteRook as u8, 56, 59);
+                },
+                6 => {
+                    self.move_piece(1, Piece::BlackKing as u8, 4, 6);
+                    self.move_piece(1, Piece::BlackRook as u8, 7, 5);
+                },
+                2 => {
+                    self.move_piece(1, Piece::BlackKing as u8, 4, 2);
+                    self.move_piece(1, Piece::BlackRook as u8, 0, 3);
+                },
+                _ => panic!("Invalid castling move: {}", to)
+            }
+        } else if enpassant != 0 {
+            self.move_piece(self.side as u8, piece, from as usize, to as usize);
+            if self.side == 0 {
+                self.add_piece(0, Piece::BlackPawn as u8, to+8);
+            } else {
+                self.add_piece(1, Piece::WhitePawn as u8, to-8);
+            }
+        } else if capture != 0 && promoted == 0 {
+            let captured_piece = self.captured_pieces_stack.pop().unwrap();
+            self.move_piece(self.side as u8, piece, from as usize, to as usize);
+            self.add_piece(opp_color as u8, captured_piece, to);
+        } else if capture == 0 && promoted == 0 {
+            self.move_piece(self.side as u8, piece, from as usize, to as usize);
+        } else {
+            if self.side == 0 {
+                self.add_piece(0, Piece::WhitePawn as u8, from);
+            } else {
+                self.add_piece(1, Piece::BlackPawn as u8, from);
+            }
+            self.remove_piece(self.side as u8, promoted, to);
+
+            if capture != 0 {
+                let captured_piece = self.captured_pieces_stack.pop().unwrap();
+                self.add_piece(opp_color as u8, captured_piece, to);
+            }
+        }
+
+        if self.side == 1 { self.fullmove -= 1; }
     }
 
 
@@ -422,6 +605,9 @@ impl Position {
         position.en_passant_stack =  Vec::with_capacity(32);
         position.hash_stack =  Vec::with_capacity(32);
         position.pawn_hash_stack =  Vec::with_capacity(32);
+
+        position.hash = 0;
+        position.pawn_hash = 0;
         
         return position; 
     }

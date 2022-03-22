@@ -23,22 +23,18 @@ use std::io::stdin;
 fn main() {
     init_all();
 
-    let mut position = Position::new();
-    //position.show(false);
-    //let move_ = Move(encode_move(Square::E2 as u8, Square::E4 as u8, Piece::WhitePawn as u8, Piece::WhiteQueen as u8, 1, 1, 1, 1));
+    let mut position = Position::from_fen("3rkr2/8/8/8/8/8/8/4K3 w - - 0 1");
     let mut move_list = MoveList::new();
-    position.generate_moves(&mut move_list);
-    // move_list.show();
-    let a = position.clone();
+    position.generate_pseudo_moves(&mut move_list);
     let mut h = String::new();
-    let mut n = 0;
+
     for move_count in 0..move_list.count {
         let move_ = move_list.moves[move_count as usize];
-        position.make(move_, 0);
+        let legal = position.make(move_);
         position.show(false);
-        position = a;
+        println!("Is position legal? :  {}", legal);
+        position.unmake(move_);
         io::stdout().flush().unwrap();
-        stdin().read_line(&mut h).unwrap();
+        io::stdin().read_line(&mut h).unwrap();
     }
-    //move_list.show();
 }
