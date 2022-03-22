@@ -7,7 +7,10 @@ use board::*;
 mod r#move;
 use r#move::*;
 
-//use std::time::Instant;
+mod uci;
+use uci::*;
+
+use std::time::Instant;
 use std::io;
 use std::io::Write;
 use std::io::stdin;
@@ -23,18 +26,22 @@ use std::io::stdin;
 fn main() {
     init_all();
 
-    let mut position = Position::from_fen("3rkr2/8/8/8/8/8/8/4K3 w - - 0 1");
-    let mut move_list = MoveList::new();
-    position.generate_pseudo_moves(&mut move_list);
-    let mut h = String::new();
+    let mut position = Position::new();
 
-    for move_count in 0..move_list.count {
-        let move_ = move_list.moves[move_count as usize];
-        let legal = position.make(move_);
-        position.show(false);
-        println!("Is position legal? :  {}", legal);
-        position.unmake(move_);
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut h).unwrap();
-    }
+    perft_test(&mut position, 2);
+    // println!("time taken: {} ms", now.elapsed().as_millis());
+    // println!("nodes: {}", unsafe { NODES });
+    // let mut move_list = MoveList::new();
+    // position.generate_pseudo_moves(&mut move_list);
+    // let mut h = String::new();
+
+    // for move_count in 0..move_list.count {
+    //     let move_ = move_list.moves[move_count as usize];
+    //     let legal = position.make(move_);
+    //     position.show(false);
+    //     println!("Is position legal? :  {}", legal);
+    //     position.unmake(move_);
+    //     io::stdout().flush().unwrap();
+    //     io::stdin().read_line(&mut h).unwrap();
+    // }
 }

@@ -319,6 +319,9 @@ impl Position {
                                 move_list.add(encode_move(source_square as u8, target_square as u8, piece as u8, 0, 0, 0, 0, 0));
                             } else {
                                 // add move into a move list
+                                self.occupancies[Side::WHITE as usize].show();
+                                print!("THE MOVE THAT IS FAILING:   ");
+                                Move(encode_move(source_square as u8, target_square as u8, piece as u8, 0, 1, 0, 0, 0)).show();
                                 move_list.add(encode_move(source_square as u8, target_square as u8, piece as u8, 0, 1, 0, 0, 0));     
                             }
                             // pop LS1B in bitboard

@@ -162,7 +162,22 @@ impl Position {
             pawn_hash_stack: Vec::with_capacity(32),
         }
     }
-
+    pub fn is_legal(&self) -> bool {
+        // check if the position is legal
+        if self.side == 1 {
+            if self.is_attacked(self.bitboards[Piece::BlackKing as usize].ls1b() as usize, 0) {
+                // move is illegal
+                return false;
+            }
+        } else {
+            // check if the move is illegal
+            if self.is_attacked(self.bitboards[Piece::WhiteKing as usize].ls1b() as usize, 1) {
+                // move is illegal
+                return false;
+            }
+        }
+        return true;
+    }
     // Moves `piece` from the field specified by `from` to the field specified by `to` with the specified `color`, also updates occupancy and incremental values.
     pub fn move_piece(&mut self, color: u8, piece: u8, from: usize, to: usize) {
         //self.pieces[color as usize][piece as usize] ^= (1u64 << from) | (1u64 << to);
