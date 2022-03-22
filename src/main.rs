@@ -31,6 +31,7 @@ fn main() {
     // move_list.show();
     let a = position.clone();
     let mut h = String::new();
+    let mut n = 0;
     for move_count in 0..move_list.count {
         let move_ = move_list.moves[move_count as usize];
         position.make(move_, 0);

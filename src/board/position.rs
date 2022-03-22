@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use super::attacks::*;
 use super::bitboard::*;
 use crate::r#move::encode::*;
+use crate::r#move::movegen::Move;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -90,15 +91,21 @@ impl Side {
     pub const BOTH: usize = 2;
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Position {
     pub bitboards: [Bitboard; 12],
     pub occupancies: [Bitboard; 3],
     pub side: usize,
     pub enpassant: Square,
     pub castle: u8,
-    pub halfmove: u32,
-    pub fullmove: u32,
+    pub halfmove: u16,
+    pub fullmove: u16,
+    pub halfmove_clocks_stack: Vec<u16>,
+    pub captured_pieces_stack: Vec<u8>,
+    pub castling_rights_stack: Vec<u8>,
+    pub en_passant_stack: Vec<Square>,
+    pub hash_stack: Vec<u64>,
+    pub pawn_hash_stack: Vec<u64>,
 }
 impl Position {
     pub fn new() -> Position {
@@ -111,7 +118,13 @@ impl Position {
             enpassant: Square::NoSquare,
             castle: 15, // <--- all castles allowed
             halfmove: 0,
-            fullmove: 0
+            fullmove: 0,
+            halfmove_clocks_stack: Vec::with_capacity(32),
+            captured_pieces_stack: Vec::with_capacity(32),
+            castling_rights_stack: Vec::with_capacity(32),
+            en_passant_stack: Vec::with_capacity(32),
+            hash_stack: Vec::with_capacity(32),
+            pawn_hash_stack: Vec::with_capacity(32),
         }
     }
     pub fn empty() -> Position {
@@ -122,7 +135,13 @@ impl Position {
             enpassant: Square::NoSquare,
             castle: 0,
             halfmove: 0,
-            fullmove: 0
+            fullmove: 0,
+            halfmove_clocks_stack: Vec::with_capacity(32),
+            captured_pieces_stack: Vec::with_capacity(32),
+            castling_rights_stack: Vec::with_capacity(32),
+            en_passant_stack: Vec::with_capacity(32),
+            hash_stack: Vec::with_capacity(32),
+            pawn_hash_stack: Vec::with_capacity(32),
         }
     }
 
@@ -153,10 +172,46 @@ impl Position {
         }
     }
 
-    pub fn unmake(&mut self) {
-        self.side = if self.side == Side::WHITE { Side::BLACK } else { Side::WHITE };
+    // Moves `piece` from the field specified by `from` to the field specified by `to` with the specified `color`, also updates occupancy and incremental values.
+    pub fn move_piece(&mut self, color: u8, piece: u8, from: usize, to: usize) {
+        //self.pieces[color as usize][piece as usize] ^= (1u64 << from) | (1u64 << to);
+        self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
+
+        // piece table
+        self.bitboards[piece as usize].pop(to);
+        self.bitboards[piece as usize].set(from);
+
+        //self.pst_scores[color as usize][OPENING as usize] -= pst::get_value(piece, color, OPENING, from);
+        //self.pst_scores[color as usize][ENDING as usize] -= pst::get_value(piece, color, ENDING, from);
+        //self.pst_scores[color as usize][OPENING as usize] += pst::get_value(piece, color, OPENING, to);
+        //self.pst_scores[color as usize][ENDING as usize] += pst::get_value(piece, color, ENDING, to);
+    }
+
+    pub fn unmake(&mut self, move_: u32) {
+        self.side = self.side^1;
+        let from = source(move_);
+        let to = target(move_);
+        let piece = piece(move_);
+        let promoted = promoted(move_);
+        let enpassant = enpassant(move_);
+        let double = double(move_);
+        let castling = castling(move_);
+        let capture = capture(move_);
+
+        if double == 1 {
+            self.move_piece(self.side as u8, piece, from as usize, to as usize);
+        }
+
+        // if 1==1 {}
+
+        self.halfmove = self.halfmove_clocks_stack.pop().unwrap();
+        self.castle = self.castling_rights_stack.pop().unwrap();
+        self.enpassant = self.en_passant_stack.pop().unwrap();
+        //self.hash = self.hash_stack.pop().unwrap();
+        //self.pawn_hash = self.pawn_hash_stack.pop().unwrap();
 
     }
+
 
     pub fn show(&self, unicode: bool) {
         let pieces;
@@ -341,9 +396,9 @@ impl Position {
                     position.enpassant = *ASCII_TO_SQUARE.get(x).unwrap();
                 }
             } else if index == 4 {
-                position.halfmove = x.parse::<u32>().unwrap();
+                position.halfmove = x.parse::<u16>().unwrap();
             } else if index == 5 {
-                position.fullmove = x.parse::<u32>().unwrap();
+                position.fullmove = x.parse::<u16>().unwrap();
             }
             index += 1;
         }
@@ -359,6 +414,14 @@ impl Position {
         // init all occupancies
         position.occupancies[Side::BOTH].0 |= position.occupancies[Side::WHITE].0;
         position.occupancies[Side::BOTH].0 |= position.occupancies[Side::BLACK].0;
+        
+        // initalize history vectors for unmake/make functions
+        position.halfmove_clocks_stack =  Vec::with_capacity(32);
+        position.captured_pieces_stack =  Vec::with_capacity(32);
+        position.castling_rights_stack = Vec::with_capacity(32);
+        position.en_passant_stack =  Vec::with_capacity(32);
+        position.hash_stack =  Vec::with_capacity(32);
+        position.pawn_hash_stack =  Vec::with_capacity(32);
         
         return position; 
     }
