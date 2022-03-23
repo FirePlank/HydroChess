@@ -13,6 +13,9 @@ use uci::*;
 mod search;
 use search::*;
 
+mod evaluation;
+use evaluation::*;
+
 use std::time::Instant;
 
 // FEN debug positions
@@ -26,6 +29,20 @@ use std::time::Instant;
 fn main() {
     init_all();
 
-    // start the main UCI loop to handle commands
-    main_loop();
+    // debug mode variable
+    let debug = true;
+    if debug {
+        let mut position = Position::from_fen("4k3/8/8/8/4p3/3P4/PPPPPPPP/RNBQKBNR w KQ - 0 1");
+        println!("{}", position.material_scores[0]);
+        println!("{}", position.material_scores[1]);
+        position.show(false);
+        let move_ = position.parse_uci("d3e4");
+        position.make(move_);
+        println!("{}", position.material_scores[0]);
+        println!("{}", position.material_scores[1]);
+        position.show(false);
+    } else {
+        // start the main UCI loop to handle commands
+        main_loop();
+    }
 }

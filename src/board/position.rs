@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::attacks::*;
 use super::bitboard::*;
 use crate::r#move::encode::*;
-
+use crate::evaluation::*;
 
 
 #[allow(dead_code)]
@@ -165,6 +165,8 @@ pub struct Position {
     pub en_passant_stack: Vec<Square>,
     pub hash_stack: Vec<u64>,
     pub pawn_hash_stack: Vec<u64>,
+    pub material_scores: [i16; 2],
+    pub pst_scores: [[i16; 2]; 2],
 }
 impl Position {
     pub fn new() -> Position {
@@ -202,6 +204,8 @@ impl Position {
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
             pawn_hash_stack: Vec::with_capacity(32),
+            material_scores: [15180; 2],
+            pst_scores: [[0; 2]; 2],
         }
     }
     pub fn empty() -> Position {
@@ -221,6 +225,8 @@ impl Position {
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
             pawn_hash_stack: Vec::with_capacity(32),
+            material_scores: [0; 2],
+            pst_scores: [[0; 2]; 2],
         }
     }
     pub fn is_legal(&self) -> bool {
@@ -256,24 +262,24 @@ impl Position {
     }
 
     // Adds `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
-    pub fn add_piece(&mut self, _color: u8, piece: u8, field: u8) {
+    pub fn add_piece(&mut self, color: u8, piece: u8, field: u8) {
         // self.pieces[color as usize][piece as usize] |= 1u64 << field;
         // self.occupancies[color as usize].0 |= 1u64 << field;
         // self.occupancies[2].0 |= 1u64 << field;
         self.bitboards[piece as usize].set(field as usize);
-        //self.material_scores[color as usize] += unsafe { parameters::PIECE_VALUE[piece as usize] };
+        self.material_scores[color as usize] += unsafe { PIECE_VALUE[piece as usize] };
 
         // self.pst_scores[color as usize][OPENING as usize] += pst::get_value(piece, color, OPENING, field);
         // self.pst_scores[color as usize][ENDING as usize] += pst::get_value(piece, color, ENDING, field);
     }
 
     // Removes `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
-    pub fn remove_piece(&mut self, _color: u8, piece: u8, field: u8) {
+    pub fn remove_piece(&mut self, color: u8, piece: u8, field: u8) {
         //self.pieces[color as usize][piece as usize] &= !(1u64 << field);
         // self.occupancies[color as usize].0 &= !(1u64 << field);
         // self.occupancies[2].0 &= !(1u64 << field);
         self.bitboards[piece as usize].pop(field as usize);
-        // self.material_scores[color as usize] -= unsafe { parameters::PIECE_VALUE[piece as usize] };
+        self.material_scores[color as usize] -= unsafe { PIECE_VALUE[piece as usize] };
 
         // self.pst_scores[color as usize][OPENING as usize] -= pst::get_value(piece, color, OPENING, field);
         // self.pst_scores[color as usize][ENDING as usize] -= pst::get_value(piece, color, ENDING, field);
@@ -788,6 +794,9 @@ impl Position {
 
         position.hash = 0;
         position.pawn_hash = 0;
+
+        // calculate material scores
+        calculate_material(&mut position);
 
         return position;
     }
