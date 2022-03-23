@@ -3,10 +3,14 @@ extern crate lazy_static;
 
 mod board;
 use board::*;
-use uci::perft_test;
 
 mod r#move;
+use r#move::*;
+
 mod uci;
+use uci::*;
+
+use std::time::Instant;
 
 // FEN debug positions
 // empty_board "8/8/8/8/8/8/8/8 w - -"
@@ -19,20 +23,6 @@ mod uci;
 fn main() {
     init_all();
 
-    let mut position = Position::from_fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10");
-    perft_test(&mut position, 5);
-
-    // let mut move_list = MoveList::new();
-    // position.generate_pseudo_moves(&mut move_list);
-    // let mut h = String::new();
-
-    // for move_count in 0..move_list.count {
-    //     let move_ = move_list.moves[move_count as usize];
-    //     let legal = position.make(move_);
-    //     position.show(false);
-    //     println!("Is position legal? :  {}", legal);
-    //     position.unmake(move_);
-    //     io::stdout().flush().unwrap();
-    //     io::stdin().read_line(&mut h).unwrap();
-    // }
+    // start the main UCI loop to handle commands
+    main_loop();
 }
