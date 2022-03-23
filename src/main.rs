@@ -10,6 +10,9 @@ use r#move::*;
 mod uci;
 use uci::*;
 
+mod search;
+use search::*;
+
 use std::time::Instant;
 
 // FEN debug positions

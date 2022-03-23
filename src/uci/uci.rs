@@ -1,7 +1,7 @@
 use crate::r#move::movegen::*;
 use crate::board::position::{self, *};
 use crate::r#move::encode::*;
-
+use crate::search::*;
 
 impl Position {
     // parse user/GUI move string input (eg. "e2e4")
@@ -72,7 +72,7 @@ impl Position {
     }
 
     // parse UCI "go" command
-    pub fn parse_go(&self, cmd: &str) {
+    pub fn parse_go(&mut self, cmd: &str) {
         // init error closures
         let error = || {
             println!("info string Invalid uci command given");
@@ -86,7 +86,7 @@ impl Position {
             return ".";
         };
         // init depth
-        let mut depth = -1;
+        let mut depth: u8 = 0;
         // split command by whitespace
         let mut split_cmd = cmd.trim().split_whitespace();
         split_cmd.next().unwrap_or_else(error);
@@ -94,15 +94,24 @@ impl Position {
         let next = split_cmd.next().unwrap_or_else(silent);
         // parse "depth" parameter
         if next == "depth" {
-            depth = split_cmd.next().unwrap_or_else(silent).parse::<i32>().unwrap_or_else(|error| {
+            depth = split_cmd.next().unwrap_or_else(silent).parse::<u8>().unwrap_or_else(|error| {
                 println!("info string Invalid parameter value given: {}", error);
                 return 0;
             }).max(1);
         } else if next == "wtime" {
             // placeholder
         }
-        if depth == -1 { depth = 6; }
-        println!("info depth {}", if depth == -1 { 99 } else { depth });
+        if depth == 0 { depth = 6; }
+        println!("info depth {}", if depth == 0 { 99 } else { depth });
+        let mut searcher = Searcher::new();
+        let move_ = searcher.negamax(self, depth);
+        let mut move_str = String::new();
+        move_str.push_str(SQUARE_COORDS[source(move_) as usize]);
+        move_str.push_str(SQUARE_COORDS[target(move_) as usize]);
+        if promoted(move_) != 0 {
+            move_str.push_str(PROMOTED_PIECES[promoted(move_) as usize]);
+        }
+        println!("bestmove {}", move_str);
     }
 }
 
