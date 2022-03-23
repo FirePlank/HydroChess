@@ -12,13 +12,14 @@ pub fn perft_driver(position: &mut Position, depth: u32) {
     // recursion espace condition
     if depth == 0 {
         // increment leaf nodes
-        unsafe { NODES += 1; }
+        unsafe {
+            NODES += 1;
+        }
         return;
     }
 
     let mut move_list = MoveList::new();
     position.generate_pseudo_moves(&mut move_list);
-    move_list.show();
     // loop over generated moves
     for move_count in 0..move_list.count {
         // init move
@@ -46,7 +47,7 @@ pub fn perft_test(position: &mut Position, depth: u32) {
 
     // start timer
     let now = Instant::now();
-    
+
     // loop over generated moves
     for move_count in 0..move_list.count {
         // init move
@@ -63,7 +64,6 @@ pub fn perft_test(position: &mut Position, depth: u32) {
         let commulative_nodes = unsafe { NODES };
 
         // recurse
-        position.show(true);
         perft_driver(position, depth - 1);
 
         // old nodes
@@ -75,11 +75,12 @@ pub fn perft_test(position: &mut Position, depth: u32) {
         let source = source(move_);
         let target = target(move_);
         let promoted = promoted(move_);
-        println!("    move: {}{}{}   nodes: {}", 
-                SQUARE_COORDS[source as usize], 
-                SQUARE_COORDS[target as usize], 
-                PROMOTED_PIECES[promoted as usize], 
-                old_nodes
+        println!(
+            "    move: {}{}{}   nodes: {}",
+            SQUARE_COORDS[source as usize],
+            SQUARE_COORDS[target as usize],
+            PROMOTED_PIECES[promoted as usize],
+            old_nodes
         );
     }
 

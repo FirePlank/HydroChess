@@ -23,7 +23,7 @@ impl Bitboard {
         // print board files
         println!("   a b c d e f g h");
         // print bitboard as unsigned decimal
-        println!("\n   Bitboard: {}\n", self.0.to_string());
+        println!("\n   Bitboard: {}\n", self.0);
     }
 
     // set bit at given square
@@ -40,7 +40,11 @@ impl Bitboard {
 
     // return 1 if square is not empty, 0 otherwise
     pub fn get(&self, square: usize) -> u64 {
-        if self.0 & (1 << square) == 0 { return 0; } else { return 1; }
+        if self.0 & (1 << square) == 0 {
+            return 0;
+        } else {
+            return 1;
+        }
     }
 
     // count one bits in bitboard
@@ -51,7 +55,8 @@ impl Bitboard {
     // get least significant 1st bit index
     pub fn ls1b(&self) -> isize {
         if self.0 != 0 {
-            return ((self.0 as i64 & (self.0 as i64).wrapping_neg()).wrapping_sub(1)).count_ones() as isize;
+            return ((self.0 as i64 & (self.0 as i64).wrapping_neg()).wrapping_sub(1)).count_ones()
+                as isize;
         } else {
             // illegal index
             return -1;

@@ -1,6 +1,22 @@
 // encode move
-pub fn encode_move(source: u8, target: u8, piece: u8, promoted: u8, capture: u8, double: u8, enpassant: u8, castling: u8) -> u32 {
-    return (source as u32) | ((target as u32) << 6) | ((piece as u32) << 12) | ((promoted as u32) << 16) | ((capture as u32) << 20) | ((double as u32) << 21) | ((enpassant as u32) << 22) | ((castling as u32) << 23);
+pub fn encode_move(
+    source: u8,
+    target: u8,
+    piece: u8,
+    promoted: u8,
+    capture: u8,
+    double: u8,
+    enpassant: u8,
+    castling: u8,
+) -> u32 {
+    return (source as u32)
+        | ((target as u32) << 6)
+        | ((piece as u32) << 12)
+        | ((promoted as u32) << 16)
+        | ((capture as u32) << 20)
+        | ((double as u32) << 21)
+        | ((enpassant as u32) << 22)
+        | ((castling as u32) << 23);
 }
 
 // extract source square
