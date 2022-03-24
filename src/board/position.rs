@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::mem;
 
 use super::attacks::*;
 use super::bitboard::*;
@@ -184,6 +185,26 @@ impl Position {
         phase += (self.bitboards[Piece::WhiteRook as usize].0 | self.bitboards[Piece::BlackRook as usize].0).count_ones() * 2;
         phase += (self.bitboards[Piece::WhiteQueen as usize].0 | self.bitboards[Piece::BlackQueen as usize].0).count_ones() * 4;
         return phase;
+    }
+
+    pub fn get_square_piece(&self, square: usize ) -> usize {
+        let start_piece;
+        let end_piece;
+        if self.side == 0 {
+            start_piece = Piece::BlackPawn as usize;
+            end_piece = Piece::BlackKing as usize;
+        } else {
+            start_piece = Piece::WhitePawn as usize;
+            end_piece = Piece::WhiteKing as usize;
+        }
+        // loop over bitboards opposite to the current side to move
+        for piece in start_piece..end_piece {
+            // if there's a piece on the target square
+            if self.bitboards[piece].get(square) != 0 {
+                return piece;
+            }
+        }
+        return 0;
     }
 
     pub fn is_legal(&self) -> bool {

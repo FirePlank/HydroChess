@@ -5,13 +5,19 @@ use crate::evaluation::*;
 
 use std::time::Instant;
 
+pub const MAX_PLY: usize = 127;
+
 pub struct Searcher {
-    ply: u8,
-    nodes: u64,
-    time: Instant,
-    best_move: u32,
+    pub ply: u8,
+    pub nodes: u64,
+    pub time: Instant,
+    pub best_move: u32,
+
+    pub killers: [[u32;MAX_PLY];2],
+    pub history: [[u32;64];12],
+
     // communication
-    stop: bool,
+    pub stop: bool,
 }
 
 impl Searcher {
@@ -21,6 +27,8 @@ impl Searcher {
             nodes: 0,
             time: Instant::now(),
             best_move: 0,
+            killers: [[0;MAX_PLY];2],
+            history: [[0;64];12],
             stop: false,
         }
     }
@@ -58,10 +66,14 @@ impl Searcher {
         let mut move_list = MoveList::new();
         // generate captures
         position.generate_pseudo_captures(&mut move_list);
+        let counted = move_list.count;
+        // sort moves
+        let sorted = self.sort_moves(&position, move_list);
+
         // loop over captures within move list
-        for count in 0..move_list.count {
+        for count in 0..counted {
             // get capture move                              
-            let move_ = move_list.moves[count as usize];
+            let move_ = sorted[count as usize].1;
 
             if !position.make(move_) {
                 position.unmake(move_);
@@ -90,7 +102,7 @@ impl Searcher {
         return alpha;
     }
 
-    pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, beta: i16, depth: u8) -> i16 {
+    pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, beta: i16, mut depth: u8) -> i16 {
         // recursion escape condition
         if depth == 0 {
             return self.quiescence(position, alpha, beta);
@@ -103,16 +115,24 @@ impl Searcher {
             position.bitboards[Piece::BlackKing as usize].ls1b() as usize
         }, position.side^1);
 
+        // increase search depth if the king has been exposed to a check
+        if in_check {
+            depth += 1;
+        }
         // legal moves
         let mut legal_moves = 0;
         // create move list
         let mut move_list = MoveList::new();
         // generate moves
         position.generate_pseudo_moves(&mut move_list);
+        let counted = move_list.count;
+        // sort moves
+        let sorted = self.sort_moves(&position, move_list);
+
         // loop over moves within move list
-        for count in 0..move_list.count {
+        for count in 0..counted {
             // get move                               
-            let move_ = move_list.moves[count as usize];
+            let move_ = sorted[count as usize].1;
 
             if !position.make(move_) {
                 position.unmake(move_);
@@ -131,9 +151,14 @@ impl Searcher {
 
             // fail-hard beta cutoff
             if score >= beta {
+                // store killer moves
+                self.killers[1][self.ply as usize] = self.killers[0][self.ply as usize];
+                self.killers[0][self.ply as usize] = move_;
                 // node (move) fails high
                 return beta;
             } else if score > alpha {
+                // store history moves
+                self.history[get_piece(move_) as usize][target(move_) as usize] += depth as u32;
                 // PV node (move)
                 alpha = score;
                 // if root move
