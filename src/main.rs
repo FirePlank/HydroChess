@@ -32,8 +32,10 @@ fn main() {
     // debug mode variable
     let debug = true;
     if debug {
-        let mut position = Position::from_fen("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1");
-        println!("{}", evaluate(position));
+        let mut position = Position::new();
+        // println!("{}", evaluate(&position));
+        calculate_material(&mut position);
+        println!("{:?}", position.material_scores);
     } else {
         // start the main UCI loop to handle commands
         main_loop();

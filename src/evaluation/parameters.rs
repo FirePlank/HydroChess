@@ -1,5 +1,7 @@
 // evaluation parameters and constants
-pub static mut PIECE_VALUE: [i16; 6] = [100, 405, 455, 665, 1330, 10000];
+pub const PIECE_VALUE: [i16; 6] = [95, 370, 390, 590, 1100, 10000];
+pub const PIECE_VALUE_EG: [i16; 6] = [115, 310, 270, 680, 1300, 10000];
+pub const BISHOP_PAIR: i16 = 40;
 
 // pub static mut MOBILITY_OPENING: i16 = 5;
 // pub static mut MOBILITY_ENDING: i16 = 1;

@@ -113,7 +113,7 @@ pub struct Position {
     pub en_passant_stack: Vec<Square>,
     pub hash_stack: Vec<u64>,
     pub pawn_hash_stack: Vec<u64>,
-    pub material_scores: [i16; 2],
+    pub material_scores: [[i16; 2]; 2],
     pub pst_scores: [[i16; 2]; 2],
 }
 impl Position {
@@ -151,7 +151,7 @@ impl Position {
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
             pawn_hash_stack: Vec::with_capacity(32),
-            material_scores: [15180; 2],
+            material_scores: [[14560, 14740], [14560, 14740]],
             pst_scores: [[348, -92]; 2],
         }
     }
@@ -172,10 +172,20 @@ impl Position {
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
             pawn_hash_stack: Vec::with_capacity(32),
-            material_scores: [0; 2],
+            material_scores: [[0; 2]; 2],
             pst_scores: [[0; 2]; 2],
         }
     }
+
+    pub fn phase(&self) -> u32 {
+        let mut phase: u32 = 0;
+        phase += (self.bitboards[Piece::WhiteKnight as usize].0 | self.bitboards[Piece::WhiteBishop as usize].0).count_ones();
+        phase += (self.bitboards[Piece::BlackKnight as usize].0 | self.bitboards[Piece::BlackBishop as usize].0).count_ones();
+        phase += (self.bitboards[Piece::WhiteRook as usize].0 | self.bitboards[Piece::BlackRook as usize].0).count_ones() * 2;
+        phase += (self.bitboards[Piece::WhiteQueen as usize].0 | self.bitboards[Piece::BlackQueen as usize].0).count_ones() * 4;
+        return phase;
+    }
+
     pub fn is_legal(&self) -> bool {
         // check if the position is legal
         if self.side == 1 {
@@ -222,7 +232,8 @@ impl Position {
         if color == 1 { index = piece - 6;
         } else { index = piece; }
 
-        self.material_scores[color as usize] += unsafe { PIECE_VALUE[index as usize] };
+        self.material_scores[color as usize][0] += PIECE_VALUE[index as usize];
+        self.material_scores[color as usize][1] += PIECE_VALUE_EG[index as usize];
         self.pst_scores[color as usize][0] += PSQT[index as usize][field as usize];
         self.pst_scores[color as usize][1] += PSQT_EG[index as usize][field as usize];
     }
@@ -238,7 +249,8 @@ impl Position {
         if color == 1 { index = piece - 6;
         } else { index = piece; }
 
-        self.material_scores[color as usize] -= unsafe { PIECE_VALUE[index as usize] };
+        self.material_scores[color as usize][0] -= PIECE_VALUE[index as usize];
+        self.material_scores[color as usize][1] -= PIECE_VALUE_EG[index as usize];
         self.pst_scores[color as usize][0] -= PSQT[index as usize][field as usize];
         self.pst_scores[color as usize][1] -= PSQT_EG[index as usize][field as usize];
     }
