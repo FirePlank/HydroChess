@@ -151,7 +151,7 @@ impl Side {
 #[derive(Debug)]
 pub struct Position {
     pub bitboards: [Bitboard; 12],
-    pub occupancies: [Bitboard; 3],
+    pub occupancies: [Bitboard; 2],
     pub side: usize,
     pub enpassant: Square,
     pub castle: u8,
@@ -188,8 +188,7 @@ impl Position {
             ],
             occupancies: [
                 Bitboard(18446462598732906240),
-                Bitboard(255),
-                Bitboard(18446462598732906495),
+                Bitboard(65535),
             ],
             side: Side::WHITE,
             enpassant: Square::NoSquare,
@@ -211,7 +210,7 @@ impl Position {
     pub fn empty() -> Position {
         Position {
             bitboards: [Bitboard(0); 12],
-            occupancies: [Bitboard(0); 3],
+            occupancies: [Bitboard(0); 2],
             side: Side::WHITE,
             enpassant: Square::NoSquare,
             castle: 0,
@@ -246,10 +245,11 @@ impl Position {
         return true;
     }
     // Moves `piece` from the field specified by `from` to the field specified by `to` with the specified `color`, also updates occupancy and incremental values.
-    pub fn move_piece(&mut self, _color: u8, piece: u8, from: usize, to: usize) {
+    pub fn move_piece(&mut self, color: u8, piece: u8, from: usize, to: usize) {
         //self.pieces[color as usize][piece as usize] ^= (1u64 << from) | (1u64 << to);
-        // self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
-        // self.occupancies[2].0 ^= (1u64 << from) | (1u64 << to);
+        self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
+        self.occupancies[2].0 ^= 1u64 << from;
+        self.occupancies[2].0 |= 1u64 << to;
 
         // piece table
         self.bitboards[piece as usize].pop(to);
@@ -264,8 +264,8 @@ impl Position {
     // Adds `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
     pub fn add_piece(&mut self, color: u8, piece: u8, field: u8) {
         // self.pieces[color as usize][piece as usize] |= 1u64 << field;
-        // self.occupancies[color as usize].0 |= 1u64 << field;
-        // self.occupancies[2].0 |= 1u64 << field;
+        self.occupancies[color as usize].0 |= 1u64 << field;
+        self.occupancies[2].0 |= 1u64 << field;
         self.bitboards[piece as usize].set(field as usize);
         self.material_scores[color as usize] += unsafe { PIECE_VALUE[piece as usize] };
 
@@ -276,8 +276,8 @@ impl Position {
     // Removes `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
     pub fn remove_piece(&mut self, color: u8, piece: u8, field: u8) {
         //self.pieces[color as usize][piece as usize] &= !(1u64 << field);
-        // self.occupancies[color as usize].0 &= !(1u64 << field);
-        // self.occupancies[2].0 &= !(1u64 << field);
+        self.occupancies[color as usize].0 &= !(1u64 << field);
+        self.occupancies[2].0 &= !(1u64 << field);
         self.bitboards[piece as usize].pop(field as usize);
         self.material_scores[color as usize] -= unsafe { PIECE_VALUE[piece as usize] };
 
@@ -423,19 +423,19 @@ impl Position {
         self.castle &= CASTLING_RIGHTS[target_square as usize];
 
         // reset occupancy
-        self.occupancies[0].0 = 0;
-        self.occupancies[1].0 = 0;
-        self.occupancies[2].0 = 0;
+        // self.occupancies[0].0 = 0;
+        // self.occupancies[1].0 = 0;
+        // self.occupancies[2].0 = 0;
 
-        // update occupancy
-        for i in Piece::WhitePawn as usize..Piece::WhiteKing as usize + 1 {
-            self.occupancies[0].0 |= self.bitboards[i].0;
-        }
-        for i in Piece::BlackPawn as usize..Piece::BlackKing as usize + 1 {
-            self.occupancies[1].0 |= self.bitboards[i].0;
-        }
-        self.occupancies[2].0 |= self.occupancies[0].0;
-        self.occupancies[2].0 |= self.occupancies[1].0;
+        // // update occupancy
+        // for i in Piece::WhitePawn as usize..Piece::WhiteKing as usize + 1 {
+        //     self.occupancies[0].0 |= self.bitboards[i].0;
+        // }
+        // for i in Piece::BlackPawn as usize..Piece::BlackKing as usize + 1 {
+        //     self.occupancies[1].0 |= self.bitboards[i].0;
+        // }
+        // self.occupancies[2].0 |= self.occupancies[0].0; 
+        // self.occupancies[2].0 |= self.occupancies[1].0;
 
         // change position variables
         self.side = opp_color;
@@ -781,8 +781,8 @@ impl Position {
             position.occupancies[Side::BLACK].0 |= position.bitboards[piece].0;
         }
         // init all occupancies
-        position.occupancies[Side::BOTH].0 |= position.occupancies[Side::WHITE].0;
-        position.occupancies[Side::BOTH].0 |= position.occupancies[Side::BLACK].0;
+        // position.occupancies[Side::BOTH].0 |= position.occupancies[Side::WHITE].0;
+        // position.occupancies[Side::BOTH].0 |= position.occupancies[Side::BLACK].0;
 
         // initalize history vectors for unmake/make functions
         position.halfmove_clocks_stack = Vec::with_capacity(32);
