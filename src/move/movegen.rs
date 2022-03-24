@@ -24,15 +24,15 @@ pub struct MoveList {
     BlackKing,
 */
 
-// promoted pieces in string format, easily indexable with Piece enum as usize
-pub const PROMOTED_PIECES: [&str; 11] = [" ", "n", "b", "r", "q", " ", " ", "n", "b", "r", "q"];
+// promoted pieces in string format, easily indexable with `Piece` enum as usize
+pub const PROMOTED_PIECES: [&str; 11] = ["", "n", "b", "r", "q", "", "", "n", "b", "r", "q"];
 
 impl Move {
     pub fn show(&self) {
         let source = source(self.0);
         let target = target(self.0);
         let promoted = promoted(self.0);
-        println!(
+        print!(
             "{}{}{}",
             SQUARE_COORDS[source as usize],
             SQUARE_COORDS[target as usize],

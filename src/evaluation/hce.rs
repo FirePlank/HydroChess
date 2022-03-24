@@ -34,6 +34,14 @@ pub fn evaluate(position: &Position) -> i16 {
     return if position.side == 0 { score } else { -score };
 }
 
+pub fn force_king_corner(position: &Position) -> i16 {
+    let mut eval = 0.0;
+
+    // favor positions where the opponent king has been forced into the edge of the board
+    // this makes the bot be able to checkmate easier in the endgame
+    return (eval * 10.0 * (1.0-(position.phase()as f32/24.0))) as i16;
+}
+
 // calculates material and PST scores in `Position`
 pub fn calculate_all(position: &mut Position) {
     for color_index in 0..2 {

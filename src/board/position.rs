@@ -212,13 +212,18 @@ impl Position {
         self.bitboards[piece as usize].set(from);
 
         // -6 the piece index if its black
-        let index;
-        if color == 1 { index = piece - 6;
-        } else { index = piece; }
-        self.pst_scores[color as usize][0] -= PSQT[index as usize][to];
-        self.pst_scores[color as usize][1] -= PSQT_EG[index as usize][to];
-        self.pst_scores[color as usize][0] += PSQT[index as usize][from];
-        self.pst_scores[color as usize][1] += PSQT_EG[index as usize][from];
+        if color == 1 {
+            let index = (piece - 6) as usize;
+            self.pst_scores[color as usize][0] -= PSQT[index][to^56];
+            self.pst_scores[color as usize][1] -= PSQT_EG[index][to^56];
+            self.pst_scores[color as usize][0] += PSQT[index][from^56];
+            self.pst_scores[color as usize][1] += PSQT_EG[index][from^56];
+        } else { 
+            self.pst_scores[color as usize][0] -= PSQT[piece as usize][to];
+            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][to];
+            self.pst_scores[color as usize][0] += PSQT[piece as usize][from];
+            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][from];
+        }
     }
 
     // Adds `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
@@ -228,14 +233,18 @@ impl Position {
         self.bitboards[piece as usize].set(field as usize);
 
         // -6 the piece index if its black
-        let index;
-        if color == 1 { index = piece - 6;
-        } else { index = piece; }
-
-        self.material_scores[color as usize][0] += PIECE_VALUE[index as usize];
-        self.material_scores[color as usize][1] += PIECE_VALUE_EG[index as usize];
-        self.pst_scores[color as usize][0] += PSQT[index as usize][field as usize];
-        self.pst_scores[color as usize][1] += PSQT_EG[index as usize][field as usize];
+        if color == 1 {
+            let index = (piece - 6) as usize;
+            self.pst_scores[color as usize][0] += PSQT[index][(field^56) as usize];
+            self.pst_scores[color as usize][1] += PSQT_EG[index][(field^56) as usize];
+            self.material_scores[color as usize][0] += PIECE_VALUE[index];
+            self.material_scores[color as usize][1] += PIECE_VALUE_EG[index];
+        } else { 
+            self.material_scores[color as usize][0] += PIECE_VALUE[piece as usize];
+            self.material_scores[color as usize][1] += PIECE_VALUE_EG[piece as usize];
+            self.pst_scores[color as usize][0] += PSQT[piece as usize][field as usize];
+            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][field as usize];
+        }
     }
 
     // Removes `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
@@ -245,14 +254,18 @@ impl Position {
         self.bitboards[piece as usize].pop(field as usize);
 
         // -6 the piece index if its black
-        let index;
-        if color == 1 { index = piece - 6;
-        } else { index = piece; }
-
-        self.material_scores[color as usize][0] -= PIECE_VALUE[index as usize];
-        self.material_scores[color as usize][1] -= PIECE_VALUE_EG[index as usize];
-        self.pst_scores[color as usize][0] -= PSQT[index as usize][field as usize];
-        self.pst_scores[color as usize][1] -= PSQT_EG[index as usize][field as usize];
+        if color == 1 {
+            let index = (piece - 6) as usize;
+            self.material_scores[color as usize][0] -= PIECE_VALUE[index];
+            self.material_scores[color as usize][1] -= PIECE_VALUE_EG[index];
+            self.pst_scores[color as usize][0] -= PSQT[index][(field^56) as usize];
+            self.pst_scores[color as usize][1] -= PSQT_EG[index][(field^56) as usize];
+        } else {          
+            self.material_scores[color as usize][0] -= PIECE_VALUE[piece as usize];
+            self.material_scores[color as usize][1] -= PIECE_VALUE_EG[piece as usize];
+            self.pst_scores[color as usize][0] -= PSQT[piece as usize][field as usize];
+            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][field as usize];
+        }
     }
 
     pub fn make(&mut self, move_: u32) -> bool {
@@ -326,9 +339,9 @@ impl Position {
         if enpassant != 0 {
             // erase the pawn from the target square
             if self.side == 0 {
-                self.remove_piece(self.side as u8, Piece::BlackPawn as u8, target_square + 8);
+                self.remove_piece(opp_color as u8, Piece::BlackPawn as u8, target_square + 8);
             } else {
-                self.remove_piece(self.side as u8, Piece::WhitePawn as u8, target_square - 8);
+                self.remove_piece(opp_color as u8, Piece::WhitePawn as u8, target_square - 8);
             }
         }
         self.enpassant = Square::NoSquare;
@@ -466,9 +479,9 @@ impl Position {
         } else if enpassant != 0 {
             self.move_piece(self.side as u8, piece, from as usize, to as usize);
             if self.side == 0 {
-                self.add_piece(0, Piece::BlackPawn as u8, to + 8);
+                self.add_piece(1, Piece::BlackPawn as u8, to + 8);
             } else {
-                self.add_piece(1, Piece::WhitePawn as u8, to - 8);
+                self.add_piece(0, Piece::WhitePawn as u8, to - 8);
             }
         } else if capture != 0 && promoted == 0 {
             let captured_piece = self.captured_pieces_stack.pop().unwrap();

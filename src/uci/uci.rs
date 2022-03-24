@@ -102,16 +102,8 @@ impl Position {
             // placeholder
         }
         if depth == 0 { depth = 6; }
-        println!("info depth {}", if depth == 0 { 99 } else { depth });
         let mut searcher = Searcher::new();
-        let move_ = searcher.negamax(self, depth);
-        let mut move_str = String::new();
-        move_str.push_str(SQUARE_COORDS[source(move_) as usize]);
-        move_str.push_str(SQUARE_COORDS[target(move_) as usize]);
-        if promoted(move_) != 0 {
-            move_str.push_str(PROMOTED_PIECES[promoted(move_) as usize]);
-        }
-        println!("bestmove {}", move_str);
+        searcher.search_position(self, depth);
     }
 }
 
@@ -133,7 +125,7 @@ pub fn parse_position(cmd: &str) -> Position {
     let next = split_cmd.next().unwrap_or_else(silent);
     // parse UCI "startpos" command
     if next == "startpos" {
-        // return chess board with start position
+        // set position to startpos
         position = Position::new();
     // parse UCI "fen" command
     } else if next == "fen" {

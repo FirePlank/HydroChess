@@ -1,4 +1,5 @@
 use crate::board::position::*;
+use crate::evaluation::hce::calculate_all;
 use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 
@@ -80,7 +81,7 @@ pub fn perft_test(position: &mut Position, depth: u32) {
             SQUARE_COORDS[source as usize],
             SQUARE_COORDS[target as usize],
             PROMOTED_PIECES[promoted as usize],
-            old_nodes
+            old_nodes,
         );
     }
 
