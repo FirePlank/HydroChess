@@ -7,6 +7,7 @@ use crate::evaluation::*;
 
 
 #[allow(dead_code)]
+#[rustfmt::skip]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Square {
     A8,B8,C8,D8,E8,F8,G8,H8,
@@ -21,6 +22,7 @@ pub enum Square {
 }
 // square string list
 #[allow(dead_code)]
+#[rustfmt::skip]
 pub const SQUARE_COORDS: [&str; 64] = [
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8", "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
     "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6", "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
@@ -34,71 +36,16 @@ pub const ASCII_PIECES: [&str; 12] = ["P", "N", "B", "R", "Q", "K", "p", "n", "b
 pub const UNICODE_PIECES: [&str; 12] = ["♟", "♞", "♝", "♜", "♛", "♚", "♙", "♘", "♗", "♖", "♕", "♔"];
 // convert ASCII character pieces to encoded constants
 lazy_static! {
+    #[rustfmt::skip]
     pub static ref ASCII_TO_SQUARE: HashMap<&'static str, Square> = HashMap::from([
-        ("a8", Square::A8),
-        ("b8", Square::B8),
-        ("c8", Square::C8),
-        ("d8", Square::D8),
-        ("e8", Square::E8),
-        ("f8", Square::F8),
-        ("g8", Square::G8),
-        ("h8", Square::H8),
-        ("a7", Square::A7),
-        ("b7", Square::B7),
-        ("c7", Square::C7),
-        ("d7", Square::D7),
-        ("e7", Square::E7),
-        ("f7", Square::F7),
-        ("g7", Square::G7),
-        ("h7", Square::H7),
-        ("a6", Square::A6),
-        ("b6", Square::B6),
-        ("c6", Square::C6),
-        ("d6", Square::D6),
-        ("e6", Square::E6),
-        ("f6", Square::F6),
-        ("g6", Square::G6),
-        ("h6", Square::H6),
-        ("a5", Square::A5),
-        ("b5", Square::B5),
-        ("c5", Square::C5),
-        ("d5", Square::D5),
-        ("e5", Square::E5),
-        ("f5", Square::F5),
-        ("g5", Square::G5),
-        ("h5", Square::H5),
-        ("a4", Square::A4),
-        ("b4", Square::B4),
-        ("c4", Square::C4),
-        ("d4", Square::D4),
-        ("e4", Square::E4),
-        ("f4", Square::F4),
-        ("g4", Square::G4),
-        ("h4", Square::H4),
-        ("a3", Square::A3),
-        ("b3", Square::B3),
-        ("c3", Square::C3),
-        ("d3", Square::D3),
-        ("e3", Square::E3),
-        ("f3", Square::F3),
-        ("g3", Square::G3),
-        ("h3", Square::H3),
-        ("a2", Square::A2),
-        ("b2", Square::B2),
-        ("c2", Square::C2),
-        ("d2", Square::D2),
-        ("e2", Square::E2),
-        ("f2", Square::F2),
-        ("g2", Square::G2),
-        ("h2", Square::H2),
-        ("a1", Square::A1),
-        ("b1", Square::B1),
-        ("c1", Square::C1),
-        ("d1", Square::D1),
-        ("e1", Square::E1),
-        ("f1", Square::F1),
-        ("g1", Square::G1),
-        ("h1", Square::H1),
+        ("a8", Square::A8),("b8", Square::B8),("c8", Square::C8),("d8", Square::D8),("e8", Square::E8),("f8", Square::F8),("g8", Square::G8),("h8", Square::H8),
+        ("a7", Square::A7),("b7", Square::B7),("c7", Square::C7),("d7", Square::D7),("e7", Square::E7),("f7", Square::F7),("g7", Square::G7),("h7", Square::H7),
+        ("a6", Square::A6),("b6", Square::B6),("c6", Square::C6),("d6", Square::D6),("e6", Square::E6),("f6", Square::F6),("g6", Square::G6),("h6", Square::H6),
+        ("a5", Square::A5),("b5", Square::B5),("c5", Square::C5),("d5", Square::D5),("e5", Square::E5),("f5", Square::F5),("g5", Square::G5),("h5", Square::H5),
+        ("a4", Square::A4),("b4", Square::B4),("c4", Square::C4),("d4", Square::D4),("e4", Square::E4),("f4", Square::F4),("g4", Square::G4),("h4", Square::H4),
+        ("a3", Square::A3),("b3", Square::B3),("c3", Square::C3),("d3", Square::D3),("e3", Square::E3),("f3", Square::F3),("g3", Square::G3),("h3", Square::H3),
+        ("a2", Square::A2),("b2", Square::B2),("c2", Square::C2),("d2", Square::D2),("e2", Square::E2),("f2", Square::F2),("g2", Square::G2),("h2", Square::H2),
+        ("a1", Square::A1),("b1", Square::B1),("c1", Square::C1),("d1", Square::D1),("e1", Square::E1),("f1", Square::F1),("g1", Square::G1),("h1", Square::H1),
     ]);
 }
 
@@ -110,6 +57,7 @@ pub enum Castling {
     BQ = 8,
 }
 // castling rights update constants
+#[rustfmt::skip]
 const CASTLING_RIGHTS: [u8; 64] = [
     7, 15, 15, 15, 3, 15, 15, 11, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
@@ -187,7 +135,7 @@ impl Position {
                 Bitboard(16),
             ],
             occupancies: [
-                Bitboard(18446462598732906240),
+                Bitboard(18446462598732840960),
                 Bitboard(65535),
             ],
             side: Side::WHITE,
@@ -204,7 +152,7 @@ impl Position {
             hash_stack: Vec::with_capacity(32),
             pawn_hash_stack: Vec::with_capacity(32),
             material_scores: [15180; 2],
-            pst_scores: [[0; 2]; 2],
+            pst_scores: [[348, -92]; 2],
         }
     }
     pub fn empty() -> Position {
@@ -247,42 +195,52 @@ impl Position {
     // Moves `piece` from the field specified by `from` to the field specified by `to` with the specified `color`, also updates occupancy and incremental values.
     pub fn move_piece(&mut self, color: u8, piece: u8, from: usize, to: usize) {
         //self.pieces[color as usize][piece as usize] ^= (1u64 << from) | (1u64 << to);
-        self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
-        self.occupancies[2].0 ^= 1u64 << from;
-        self.occupancies[2].0 |= 1u64 << to;
+        //self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
 
         // piece table
         self.bitboards[piece as usize].pop(to);
         self.bitboards[piece as usize].set(from);
 
-        //self.pst_scores[color as usize][OPENING as usize] -= pst::get_value(piece, color, OPENING, from);
-        //self.pst_scores[color as usize][ENDING as usize] -= pst::get_value(piece, color, ENDING, from);
-        //self.pst_scores[color as usize][OPENING as usize] += pst::get_value(piece, color, OPENING, to);
-        //self.pst_scores[color as usize][ENDING as usize] += pst::get_value(piece, color, ENDING, to);
+        // -6 the piece index if its black
+        let index;
+        if color == 1 { index = piece - 6;
+        } else { index = piece; }
+        self.pst_scores[color as usize][0] -= PSQT[index as usize][to];
+        self.pst_scores[color as usize][1] -= PSQT_EG[index as usize][to];
+        self.pst_scores[color as usize][0] += PSQT[index as usize][from];
+        self.pst_scores[color as usize][1] += PSQT_EG[index as usize][from];
     }
 
     // Adds `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
     pub fn add_piece(&mut self, color: u8, piece: u8, field: u8) {
         // self.pieces[color as usize][piece as usize] |= 1u64 << field;
-        self.occupancies[color as usize].0 |= 1u64 << field;
-        self.occupancies[2].0 |= 1u64 << field;
+        // self.occupancies[color as usize].set(field as usize);
         self.bitboards[piece as usize].set(field as usize);
-        self.material_scores[color as usize] += unsafe { PIECE_VALUE[piece as usize] };
 
-        // self.pst_scores[color as usize][OPENING as usize] += pst::get_value(piece, color, OPENING, field);
-        // self.pst_scores[color as usize][ENDING as usize] += pst::get_value(piece, color, ENDING, field);
+        // -6 the piece index if its black
+        let index;
+        if color == 1 { index = piece - 6;
+        } else { index = piece; }
+
+        self.material_scores[color as usize] += unsafe { PIECE_VALUE[index as usize] };
+        self.pst_scores[color as usize][0] += PSQT[index as usize][field as usize];
+        self.pst_scores[color as usize][1] += PSQT_EG[index as usize][field as usize];
     }
 
     // Removes `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
     pub fn remove_piece(&mut self, color: u8, piece: u8, field: u8) {
         //self.pieces[color as usize][piece as usize] &= !(1u64 << field);
-        self.occupancies[color as usize].0 &= !(1u64 << field);
-        self.occupancies[2].0 &= !(1u64 << field);
+        //self.occupancies[color as usize].0 &= !(1u64 << field);
         self.bitboards[piece as usize].pop(field as usize);
-        self.material_scores[color as usize] -= unsafe { PIECE_VALUE[piece as usize] };
 
-        // self.pst_scores[color as usize][OPENING as usize] -= pst::get_value(piece, color, OPENING, field);
-        // self.pst_scores[color as usize][ENDING as usize] -= pst::get_value(piece, color, ENDING, field);
+        // -6 the piece index if its black
+        let index;
+        if color == 1 { index = piece - 6;
+        } else { index = piece; }
+
+        self.material_scores[color as usize] -= unsafe { PIECE_VALUE[index as usize] };
+        self.pst_scores[color as usize][0] -= PSQT[index as usize][field as usize];
+        self.pst_scores[color as usize][1] -= PSQT_EG[index as usize][field as usize];
     }
 
     pub fn make(&mut self, move_: u32) -> bool {
@@ -423,19 +381,16 @@ impl Position {
         self.castle &= CASTLING_RIGHTS[target_square as usize];
 
         // reset occupancy
-        // self.occupancies[0].0 = 0;
-        // self.occupancies[1].0 = 0;
-        // self.occupancies[2].0 = 0;
+        self.occupancies[0].0 = 0;
+        self.occupancies[1].0 = 0;
 
-        // // update occupancy
-        // for i in Piece::WhitePawn as usize..Piece::WhiteKing as usize + 1 {
-        //     self.occupancies[0].0 |= self.bitboards[i].0;
-        // }
-        // for i in Piece::BlackPawn as usize..Piece::BlackKing as usize + 1 {
-        //     self.occupancies[1].0 |= self.bitboards[i].0;
-        // }
-        // self.occupancies[2].0 |= self.occupancies[0].0; 
-        // self.occupancies[2].0 |= self.occupancies[1].0;
+        // update occupancy
+        for i in Piece::WhitePawn as usize..Piece::WhiteKing as usize + 1 {
+            self.occupancies[0].0 |= self.bitboards[i].0;
+        }
+        for i in Piece::BlackPawn as usize..Piece::BlackKing as usize + 1 {
+            self.occupancies[1].0 |= self.bitboards[i].0;
+        }
 
         // change position variables
         self.side = opp_color;
@@ -795,8 +750,8 @@ impl Position {
         position.hash = 0;
         position.pawn_hash = 0;
 
-        // calculate material scores
-        calculate_material(&mut position);
+        // calculate piece square table score and material score
+        calculate_all(&mut position);
 
         return position;
     }
@@ -826,8 +781,9 @@ impl Position {
             {
                 return true;
             }
+            let both = Bitboard(self.occupancies[Side::WHITE].0 | self.occupancies[Side::BLACK].0);
             // attacked by bishops
-            if get_bishop_attacks(square, self.occupancies[Side::BOTH])
+            if get_bishop_attacks(square, both)
                 & (if side == Side::WHITE {
                     self.bitboards[Piece::WhiteBishop as usize].0
                 } else {
@@ -838,7 +794,7 @@ impl Position {
                 return true;
             }
             // attacked by rooks
-            if get_rook_attacks(square, self.occupancies[Side::BOTH])
+            if get_rook_attacks(square, both)
                 & (if side == Side::WHITE {
                     self.bitboards[Piece::WhiteRook as usize].0
                 } else {
@@ -849,7 +805,7 @@ impl Position {
                 return true;
             }
             // attacked by queens
-            if get_queen_attacks(square, self.occupancies[Side::BOTH])
+            if get_queen_attacks(square, both)
                 & (if side == Side::WHITE {
                     self.bitboards[Piece::WhiteQueen as usize].0
                 } else {

@@ -27,14 +27,13 @@ use std::time::Instant;
 // fireplank_special "r3k2r/4nq1P/1n2N1b1/1b6/4N3/5B2/1pRQPPPP/2BK4 w kq - 0 1"
 
 fn main() {
-    // init_all();
+    init_all();
 
     // debug mode variable
     let debug = true;
     if debug {
-        let mut position = Position::new();
-        position.occupancies[0].show();
-        position.occupancies[1].show();
+        let mut position = Position::from_fen("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1");
+        println!("{}", evaluate(position));
     } else {
         // start the main UCI loop to handle commands
         main_loop();

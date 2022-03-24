@@ -98,6 +98,9 @@ impl Position {
         let mut source_square;
         let mut target_square;
 
+        // combine both occupancy boards
+        let both = Bitboard(self.occupancies[0].0 | self.occupancies[1].0);
+
         // define current piece's bitboard copy & it's attacks
         let mut bitboard: Bitboard;
         let mut attacks;
@@ -122,7 +125,7 @@ impl Position {
 
                             // generate quiet pawn moves
                             if target_square >= Square::A8 as usize &&
-                                (self.occupancies[Side::BOTH as usize].get(target_square) == 0)
+                                (both.get(target_square) == 0)
                             {
                                 // pawn promotion
                                 if source_square >= Square::A7 as usize
@@ -185,7 +188,7 @@ impl Position {
                                     // two squares ahead pawn move
                                     if (source_square >= Square::A2 as usize
                                         && source_square <= Square::H2 as usize)
-                                        && (self.occupancies[Side::BOTH as usize]
+                                        && (both
                                             .get(target_square - 8)
                                             == 0)
                                     {
@@ -308,8 +311,8 @@ impl Position {
                         // king self.side castling is available
                         if (self.castle & Castling::WK as u8) != 0 {
                             // make sure squares between king and rook are empty
-                            if (self.occupancies[Side::BOTH as usize].get(Square::F1 as usize) == 0)
-                                && (self.occupancies[Side::BOTH as usize].get(Square::G1 as usize)
+                            if (both.get(Square::F1 as usize) == 0)
+                                && (both.get(Square::G1 as usize)
                                     == 0)
                             {
                                 // make sure king and the spaces in between are not attacked
@@ -334,10 +337,10 @@ impl Position {
                         // queen castling is available
                         if (self.castle & Castling::WQ as u8) != 0 {
                             // make sure squares between king and rook are empty
-                            if (self.occupancies[Side::BOTH as usize].get(Square::D1 as usize) == 0)
-                                && (self.occupancies[Side::BOTH as usize].get(Square::C1 as usize)
+                            if (both.get(Square::D1 as usize) == 0)
+                                && (both.get(Square::C1 as usize)
                                     == 0)
-                                && (self.occupancies[Side::BOTH as usize].get(Square::B1 as usize)
+                                && (both.get(Square::B1 as usize)
                                     == 0)
                             {
                                 // make sure king and the spaces in between are not attacked
@@ -375,7 +378,7 @@ impl Position {
 
                             // generate quiet pawn moves
                             if target_square <= Square::H1 as usize &&
-                                (self.occupancies[Side::BOTH as usize].get(target_square) == 0)
+                                (both.get(target_square) == 0)
                             {
                                 // pawn promotion
                                 if source_square >= Square::A2 as usize
@@ -438,7 +441,7 @@ impl Position {
                                     // two squares ahead pawn move
                                     if (source_square >= Square::A7 as usize
                                         && source_square <= Square::H7 as usize)
-                                        && (self.occupancies[Side::BOTH as usize]
+                                        && (both
                                             .get(target_square + 8)
                                             == 0)
                                     {
@@ -565,9 +568,9 @@ impl Position {
                             // king self.side castling is available
                             if (self.castle & Castling::BK as u8) != 0 {
                                 // make sure squares between king and rook are empty
-                                if (self.occupancies[Side::BOTH as usize].get(Square::F8 as usize)
+                                if (both.get(Square::F8 as usize)
                                     == 0)
-                                    && (self.occupancies[Side::BOTH as usize]
+                                    && (both
                                         .get(Square::G8 as usize)
                                         == 0)
                                 {
@@ -594,12 +597,12 @@ impl Position {
                             // queen self.side castling is available
                             if (self.castle & Castling::BQ as u8) != 0 {
                                 // make sure squares between king and rook are empty
-                                if (self.occupancies[Side::BOTH as usize].get(Square::D8 as usize)
+                                if (both.get(Square::D8 as usize)
                                     == 0)
-                                    && (self.occupancies[Side::BOTH as usize]
+                                    && (both
                                         .get(Square::C8 as usize)
                                         == 0)
-                                    && (self.occupancies[Side::BOTH as usize]
+                                    && (both
                                         .get(Square::B8 as usize)
                                         == 0)
                                 {
@@ -707,7 +710,7 @@ impl Position {
                         attacks = Bitboard(
                             get_bishop_attacks(
                                 source_square,
-                                self.occupancies[Side::BOTH as usize],
+                                both,
                             ) & if self.side == Side::WHITE {
                                 !self.occupancies[Side::WHITE as usize].0
                             } else {
@@ -776,7 +779,7 @@ impl Position {
                             occ = self.occupancies[Side::BLACK as usize];
                         }
                         attacks = Bitboard(
-                            get_rook_attacks(source_square, self.occupancies[Side::BOTH as usize])
+                            get_rook_attacks(source_square, both)
                                 & !occ.0,
                         );
                         // generate rook captures
@@ -835,7 +838,7 @@ impl Position {
 
                         // init queen attacks bitboard
                         attacks = Bitboard(
-                            get_queen_attacks(source_square, self.occupancies[Side::BOTH as usize])
+                            get_queen_attacks(source_square, both)
                                 & if self.side == Side::WHITE {
                                     !self.occupancies[Side::WHITE as usize].0
                                 } else {
@@ -954,6 +957,9 @@ impl Position {
         let mut source_square;
         let mut target_square;
 
+        // combine both occupancy boards
+        let both = Bitboard(self.occupancies[0].0 | self.occupancies[1].0);
+        
         // define current piece's bitboard copy & it's attacks
         let mut bitboard: Bitboard;
         let mut attacks;
@@ -1250,7 +1256,7 @@ impl Position {
                         attacks = Bitboard(
                             get_bishop_attacks(
                                 source_square,
-                                self.occupancies[Side::BOTH as usize],
+                                both,
                             ) & if self.side == Side::WHITE {
                                 !self.occupancies[Side::WHITE as usize].0
                             } else {
@@ -1307,7 +1313,7 @@ impl Position {
                             occ = self.occupancies[Side::BLACK as usize];
                         }
                         attacks = Bitboard(
-                            get_rook_attacks(source_square, self.occupancies[Side::BOTH as usize])
+                            get_rook_attacks(source_square, both)
                                 & !occ.0,
                         );
                         // generate rook captures
@@ -1354,7 +1360,7 @@ impl Position {
 
                         // init queen attacks bitboard
                         attacks = Bitboard(
-                            get_queen_attacks(source_square, self.occupancies[Side::BOTH as usize])
+                            get_queen_attacks(source_square, both)
                                 & if self.side == Side::WHITE {
                                     !self.occupancies[Side::WHITE as usize].0
                                 } else {
