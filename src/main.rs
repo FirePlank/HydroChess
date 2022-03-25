@@ -26,34 +26,15 @@ use std::time::Instant;
 // cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9"
 // fireplank_special "r3k2r/4nq1P/1n2N1b1/1b6/4N3/5B2/1pRQPPPP/2BK4 w kq - 0 1"
 
-// fn position_max_copy<T: Ord + Copy>(slice: &[T]) -> Option<usize> {
-//     slice.iter().enumerate().max_by_key(|(_, &value)| value).map(|(idx, _)| idx)
-// }
 fn main() {
     init_all();
 
     // debug mode variable
     let debug = true;
     if debug {
-        // cmk = 2162211   tricky = 760453
-        let mut position = Position::from_fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10");
-        //create move list instance
-        let mut move_list = MoveList::new();
-        // generate pseudo-legal moves
-        position.generate_pseudo_moves(&mut move_list);
-
-        // position.show(false);
+        let mut position = Position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
         let mut searcher = Searcher::new();
         searcher.search_position(&mut position, 5);
-        // searcher.killers[0][0] = move_list.moves[3];
-        // let a = searcher.sort_moves(&position, move_list);
-        // println!("{:?}", a);
-        // searcher.search_position(&mut position, 6);
-        // loop over generated moves
-        // let now = Instant::now();
-        // let a = sort_moves(&position, move_list);
-        // Move(a[0].1).show();
-        //println!("{:?}", now.elapsed());
     } else {
         // start the main UCI loop to handle commands
         main_loop();

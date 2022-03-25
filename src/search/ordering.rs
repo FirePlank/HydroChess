@@ -28,7 +28,7 @@ pub const MVV_LVA: [[u16;6];6] = [
 ];
 
 impl Searcher {
-    pub fn sort_moves(&self, position: &Position, move_list: MoveList) -> [(u16, u32); 356] {
+    pub fn sort_moves(&mut self, position: &Position, move_list: MoveList) -> [(u16, u32); 356] {
         // sort moves
         let mut move_scores: [(u16, u32);356] = [(0, 0);356];
     
@@ -41,7 +41,18 @@ impl Searcher {
         return move_scores;
     }
 
-    pub fn score_move(&self, position: &Position, move_: u32) -> u16 {
+    pub fn score_move(&mut self, position: &Position, move_: u32) -> u16 {
+        // if move scoring is allowed
+        if self.score_pv {
+            // make sure we are dealing with PV move
+            if self.pv_table[0][self.ply as usize] == move_ {
+                // disable score PV flag
+                self.score_pv = false;
+                // give PV move the highest score so we search it first
+                return 16000;
+            }
+        }
+
         let mut score = 0;
         let promoted = promoted(move_);
         // score capture move

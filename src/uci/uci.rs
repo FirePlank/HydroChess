@@ -72,7 +72,7 @@ impl Position {
     }
 
     // parse UCI "go" command
-    pub fn parse_go(&mut self, cmd: &str) {
+    pub fn parse_go(&mut self, searcher: &mut Searcher, cmd: &str) {
         // init error closures
         let error = || {
             println!("info string Invalid uci command given");
@@ -102,7 +102,6 @@ impl Position {
             // placeholder
         }
         if depth == 0 { depth = 6; }
-        let mut searcher = Searcher::new();
         searcher.search_position(self, depth);
     }
 }
