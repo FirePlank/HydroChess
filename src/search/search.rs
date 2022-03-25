@@ -6,6 +6,8 @@ use crate::evaluation::*;
 use std::time::Instant;
 
 pub const MAX_PLY: usize = 127;
+pub const MATE: i16 = 32267;
+pub const INFINITY: i16 = i16::MAX;
 
 pub struct Searcher {
     pub ply: u8,
@@ -19,6 +21,9 @@ pub struct Searcher {
     pub pv_length: [u8;MAX_PLY],           // PV lenght [ply]
     pub follow_pv: bool,
     pub score_pv: bool,
+
+    pub full_depth_moves: u8,
+    pub reduction_limit: u8,
 
     // communication
     pub stop: bool,
@@ -36,6 +41,8 @@ impl Searcher {
             pv_length: [0;MAX_PLY],
             follow_pv: false,
             score_pv: false,
+            full_depth_moves: 3,
+            reduction_limit: 2,
             stop: false,
         }
     }
@@ -54,14 +61,26 @@ impl Searcher {
         self.history.iter_mut().for_each(|x| *x = [0;64]);
         self.pv_table.iter_mut().for_each(|x| *x = [0;MAX_PLY]);
         self.pv_length.iter_mut().for_each(|x| *x = 0);
-
+        // define initial apha beta bounds
+        // let mut alpha = -INFINITY;
+        // let mut beta = INFINITY;
         // iterative deepening
         for current_depth in 1..depth+1 {
             // enable follow PV flag
             self.follow_pv = true;
             // find best move within a given position
-            let score = self.negamax(position, i16::MIN+1, i16::MAX-1, current_depth);
+            let score = self.negamax(position, -INFINITY, INFINITY, current_depth, true);
 
+            // if score <= alpha || score >= beta {
+            //     alpha = -INFINITY;
+            //     beta = INFINITY;
+            //     continue;
+            // }
+
+            // set up the window for the next iteration
+            // alpha = score - 50;
+            // beta = score + 50;
+            
             print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, self.time.elapsed().as_millis());
             // loop over the moves within a PV lone
             for count in 0..self.pv_length[0] {
@@ -151,9 +170,12 @@ impl Searcher {
         return alpha;
     }
 
-    pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, beta: i16, mut depth: u8) -> i16 {
+    pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, mut beta: i16, mut depth: u8, mut null_move: bool) -> i16 {
         // init PV lenght
         self.pv_length[self.ply as usize] = self.ply;
+
+        let pv_node = beta.wrapping_sub(alpha) > 1;
+        let mut score: i16;
         
         // recursion escape condition
         if depth == 0 {
@@ -163,6 +185,15 @@ impl Searcher {
         // too deep, return eval
         if self.ply == MAX_PLY as u8 {
             return evaluate(position);
+        }
+
+        // mate distance pruning
+        if alpha < -MATE {
+            alpha = -MATE;
+        } if beta > MATE-1 {
+            beta = MATE-1;
+        } if alpha >= beta {
+            return alpha;
         }
 
         // increment nodes counter
@@ -176,6 +207,53 @@ impl Searcher {
         // increase search depth if the king has been exposed to a check
         if in_check {
             depth += 1;
+        }
+        else if !in_check && !pv_node {
+            // static evaluation
+            let eval = evaluate(position);
+
+            // evaluation pruning
+            if depth < 3 && (beta-1).abs() as i32 > -49000 + 100 {
+                let eval_margin = PIECE_VALUE[Piece::WhitePawn as usize] * depth as i16;
+                if eval - eval_margin >= beta {
+                    return eval - eval_margin;
+                }
+            }
+
+            // null move pruning
+            if null_move {
+                if self.ply != 0 && depth > 2 && eval >= beta {
+                    // make a null move
+                    position.side ^= 1;
+                    // preserve enpassant
+                    let enpassant = position.enpassant;
+                    position.enpassant = Square::NoSquare;
+                    
+                    // search moves with reduced depth to find beta cutoffs
+                    let score = -self.negamax(position, -beta, -beta+1, depth-1-self.reduction_limit, false);
+                    // take back null move
+                    position.side ^= 1;
+                    position.enpassant = enpassant;
+                    // fail-hard beta cutoff
+                    if score >= beta {
+                        // node (move) fails high
+                        return beta;
+                    }
+                }
+
+                // razoring
+                score = eval + PIECE_VALUE[Piece::WhitePawn as usize];
+                let new_score;
+
+                if score < beta {
+                    if depth == 1 {
+                        new_score = self.quiescence(position, alpha, beta);
+                        if new_score < beta {
+                            return if new_score > score { new_score } else { score };
+                        }
+                    }
+                }
+            }
         }
         // legal moves
         let mut legal_moves = 0;
@@ -193,6 +271,9 @@ impl Searcher {
         // sort moves
         let sorted = self.sort_moves(&position, move_list);
 
+        // number of moves searched in a move list
+        let mut moves_searched = 0;
+
         // loop over moves within move list
         for count in 0..counted {
             // get move                               
@@ -206,12 +287,36 @@ impl Searcher {
             // increment ply and legal moves
             self.ply += 1;
             legal_moves += 1;
-            // score current move
-            let score = -self.negamax(position, -beta, -alpha, depth - 1);
+
+            // full depth search
+            if moves_searched == 0 {
+                // do normal alpha-beta search
+                score = -self.negamax(position, -beta, -alpha, depth - 1, true);
+            } else {
+                // condition to consider LMR (late move reduction)
+                if moves_searched >= self.full_depth_moves && depth >= self.reduction_limit && 
+                                    !in_check && capture(move_) == 0 && promoted(move_) == 0 {
+                    // search current move with reduced depth
+                    score = -self.negamax(position, -alpha-1, -alpha, depth-2, true);
+                } else {
+                    score = alpha+1;
+                }
+                // if found a better move during LMR re-search at normal depth
+                if score > alpha {
+                    score = -self.negamax(position, -alpha-1, -alpha, depth-1, true);
+                    // if LMR fails re-search at full depth
+                    if score > alpha && score < beta {
+                        score = -self.negamax(position, -beta, -alpha, depth-1, true);
+                    }
+                }
+            }
+
             // take back move
             position.unmake(move_);
             // decrement ply
             self.ply -= 1;
+            // increment the number of moves searched so far
+            moves_searched += 1;
 
             // fail-hard beta cutoff
             if score >= beta {
@@ -249,7 +354,7 @@ impl Searcher {
         if legal_moves == 0 {
             if in_check {
                 // checkmate
-                return i16::MIN+500+self.ply as i16;
+                return -MATE+self.ply as i16;
             } else {
                 // stalemate
                 return 0;

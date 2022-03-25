@@ -32,9 +32,9 @@ fn main() {
     // debug mode variable
     let debug = true;
     if debug {
-        let mut position = Position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+        let mut position = Position::from_fen("rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1");
         let mut searcher = Searcher::new();
-        searcher.search_position(&mut position, 5);
+        searcher.search_position(&mut position, 10);
     } else {
         // start the main UCI loop to handle commands
         main_loop();
