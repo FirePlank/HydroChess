@@ -226,7 +226,7 @@ impl Position {
     // Moves `piece` from the field specified by `from` to the field specified by `to` with the specified `color`, also updates occupancy and incremental values.
     pub fn move_piece(&mut self, color: u8, piece: u8, from: usize, to: usize) {
         //self.pieces[color as usize][piece as usize] ^= (1u64 << from) | (1u64 << to);
-        //self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
+        self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
 
         // piece table
         self.bitboards[piece as usize].pop(to);
@@ -250,7 +250,7 @@ impl Position {
     // Adds `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
     pub fn add_piece(&mut self, color: u8, piece: u8, field: u8) {
         // self.pieces[color as usize][piece as usize] |= 1u64 << field;
-        // self.occupancies[color as usize].set(field as usize);
+        self.occupancies[color as usize].0 |= 1u64 << field;
         self.bitboards[piece as usize].set(field as usize);
 
         // -6 the piece index if its black
@@ -271,7 +271,7 @@ impl Position {
     // Removes `piece` on the `field` with the specified `color`, also updates occupancy and incremental values.
     pub fn remove_piece(&mut self, color: u8, piece: u8, field: u8) {
         //self.pieces[color as usize][piece as usize] &= !(1u64 << field);
-        //self.occupancies[color as usize].0 &= !(1u64 << field);
+        self.occupancies[color as usize].0 &= !(1u64 << field);
         self.bitboards[piece as usize].pop(field as usize);
 
         // -6 the piece index if its black
@@ -427,16 +427,16 @@ impl Position {
         self.castle &= CASTLING_RIGHTS[target_square as usize];
 
         // reset occupancy
-        self.occupancies[0].0 = 0;
-        self.occupancies[1].0 = 0;
+        // self.occupancies[0].0 = 0;
+        // self.occupancies[1].0 = 0;
 
-        // update occupancy
-        for i in Piece::WhitePawn as usize..Piece::WhiteKing as usize + 1 {
-            self.occupancies[0].0 |= self.bitboards[i].0;
-        }
-        for i in Piece::BlackPawn as usize..Piece::BlackKing as usize + 1 {
-            self.occupancies[1].0 |= self.bitboards[i].0;
-        }
+        // // update occupancy
+        // for i in Piece::WhitePawn as usize..Piece::WhiteKing as usize + 1 {
+        //     self.occupancies[0].0 |= self.bitboards[i].0;
+        // }
+        // for i in Piece::BlackPawn as usize..Piece::BlackKing as usize + 1 {
+        //     self.occupancies[1].0 |= self.bitboards[i].0;
+        // }
 
         // change position variables
         self.side = opp_color;
