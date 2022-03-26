@@ -97,7 +97,7 @@ impl Side {
     pub const BOTH: usize = 2;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Position {
     pub bitboards: [Bitboard; 12],
     pub occupancies: [Bitboard; 2],

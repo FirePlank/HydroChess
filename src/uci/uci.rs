@@ -3,6 +3,8 @@ use crate::board::position::{self, *};
 use crate::r#move::encode::*;
 use crate::search::*;
 
+use std::time::UNIX_EPOCH;
+
 impl Position {
     // parse user/GUI move string input (eg. "e2e4")
     pub fn parse_uci(&self, move_string: &str) -> u32 {
@@ -72,7 +74,7 @@ impl Position {
     }
 
     // parse UCI "go" command
-    pub fn parse_go(&mut self, searcher: &mut Searcher, cmd: &str) {
+    pub fn parse_go(&mut self, cmd: &str) {
         // init error closures
         let error = || {
             println!("info string Invalid uci command given");
@@ -91,17 +93,106 @@ impl Position {
         let mut split_cmd = cmd.trim().split_whitespace();
         split_cmd.next().unwrap_or_else(error);
 
-        let next = split_cmd.next().unwrap_or_else(silent);
-        // parse "depth" parameter
-        if next == "depth" {
-            depth = split_cmd.next().unwrap_or_else(silent).parse::<u8>().unwrap_or_else(|error| {
-                println!("info string Invalid parameter value given: {}", error);
-                return 0;
-            }).max(1);
-        } else if next == "wtime" {
-            // placeholder
+        let mut searcher = Searcher::new();
+        let phase = self.phase();
+        let addon = if phase as i32 - 22 > 0 { phase - 3 } else {
+            if phase as i32 - 15 > 0 { phase-1 } else { 
+                if phase as i32 - 7 > 0 { phase } else { 0 }
+            }
+        };
+        let sub = if phase < 10 { 2 } else { 0 };
+        let factor = 1.0-(((phase as f32-addon as f32)+sub as f32)/24f32);
+        loop {
+            let next = split_cmd.next().unwrap_or_else(silent);
+            if next == "." { break; }
+            match next {
+                "depth" => {
+                    depth = split_cmd.next().unwrap_or_else(silent).parse::<u8>().unwrap_or_else(|error| {
+                        println!("info string Invalid parameter value given: {}", error);
+                        return 0;
+                    });
+                }, 
+                "wtime" => {
+                    if self.side == 0 {
+                        searcher.playtime = split_cmd.next().unwrap_or_else(silent).parse::<i32>().unwrap_or_else(|error| {
+                            println!("info string Invalid parameter value given: {}", error);
+                            return -1;
+                        });
+                        if searcher.playtime != -1 { searcher.playtime += 6; }
+                    }
+                },
+                "btime" => {
+                    if self.side == 1 {
+                        searcher.playtime = split_cmd.next().unwrap_or_else(silent).parse::<i32>().unwrap_or_else(|error| {
+                            println!("info string Invalid parameter value given: {}", error);
+                            return -1;
+                        });
+                        if searcher.playtime != -1 { searcher.playtime += 6; }
+                    }
+                },
+                "winc" => {
+                    if self.side == 0 {
+                        searcher.inc = split_cmd.next().unwrap_or_else(silent).parse::<i32>().unwrap_or_else(|error| {
+                            println!("info string Invalid parameter value given: {}", error);
+                            return 0;
+                        });
+                        if searcher.inc != 0 { searcher.inc += 5; }
+                    }
+                },
+                "binc" => {
+                    if self.side == 1 {
+                        searcher.inc = split_cmd.next().unwrap_or_else(silent).parse::<i32>().unwrap_or_else(|error| {
+                            println!("info string Invalid parameter value given: {}", error);
+                            return 0;
+                        });
+                        if searcher.inc != 0 { searcher.inc += 5; }
+                    }
+                },
+                "movestogo" => {
+                    searcher.movestogo = split_cmd.next().unwrap_or_else(silent).parse::<i32>().unwrap_or_else(|error| {
+                        println!("info string Invalid parameter value given: {}", error);
+                        return 0;
+                    });
+                    if searcher.movestogo != 0 { searcher.movestogo += 10; }
+                },
+                "movetime" => {
+                    searcher.movetime = split_cmd.next().unwrap_or_else(silent).parse::<i32>().unwrap_or_else(|error| {
+                        println!("info string Invalid parameter value given: {}", error);
+                        return -1;
+                    });
+                    if searcher.movetime != -1 { searcher.movetime += 9; }
+                },
+                _ => ()
+            }
         }
-        if depth == 0 { depth = 6; }
+
+        if searcher.movetime != -1 {
+            searcher.playtime = searcher.movetime;
+            searcher.movestogo = 1;
+        }
+
+        if searcher.playtime != -1 {
+            searcher.timeset = true;
+            searcher.playtime /= searcher.movestogo;
+            searcher.stoptime = searcher.time.duration_since(UNIX_EPOCH).unwrap().as_millis() + (searcher.playtime as f32*factor) as u128 + (searcher.inc as f32*factor) as u128;
+
+            // let phase = self.phase();
+            // let addon = if phase as i32 - 23 > 0 { phase - 18 } else {
+            //     if phase as i32 - 17 > 0 { phase - 8 } else { 
+            //         if phase as i32 - 10 > 0 { phase - 4 } else { 0 }
+            //     }
+            // };
+            // let sub = if phase < 10 { 10 - phase } else { 0 };
+            // print!("info string {} ", searcher.stoptime);
+            // let mut factor = (1.0-(((phase as f32-addon as f32)+sub as f32)/24f32));
+            // if (searcher.stoptime as f32*factor) as u128 > searcher.time.duration_since(UNIX_EPOCH).unwrap().as_millis() {
+            //     factor = 0.5;
+            // }
+            // searcher.stoptime = (searcher.stoptime as f32*factor) as u128;
+        }
+        
+        if depth == 0 { depth = MAX_PLY as u8; }
+        println!("info string time: {} start: {:?} stop: {} depth: {} timeset: {} factor: {}", searcher.playtime, searcher.time, searcher.stoptime, depth, searcher.timeset, factor);
         searcher.search_position(self, depth);
     }
 }

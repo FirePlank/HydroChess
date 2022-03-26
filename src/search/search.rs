@@ -3,16 +3,19 @@ use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 use crate::evaluation::*;
 
-use std::time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const MAX_PLY: usize = 127;
-pub const MATE: i16 = 32267;
+pub const MATE_VALUE: i16 = i16::MAX-150;
+pub const MATE_SCORE: i16 = i16::MAX-300;
 pub const INFINITY: i16 = i16::MAX;
+// stop search if time is up
+pub static mut STOP: bool = false;
 
 pub struct Searcher {
     pub ply: u8,
     pub nodes: u64,
-    pub time: Instant,
+    pub time: SystemTime,
 
     pub killers: [[u32;MAX_PLY];2],
     pub history: [[u32;64];12],
@@ -25,8 +28,13 @@ pub struct Searcher {
     pub full_depth_moves: u8,
     pub reduction_limit: u8,
 
-    // communication
-    pub stop: bool,
+    // uci options
+    pub inc: i32,
+    pub movetime: i32,
+    pub movestogo: i32,
+    pub playtime: i32,
+    pub timeset: bool,
+    pub stoptime: u128,
 }
 
 impl Searcher {
@@ -34,7 +42,7 @@ impl Searcher {
         Searcher {
             ply: 0,
             nodes: 0,
-            time: Instant::now(),
+            time: SystemTime::now(),
             killers: [[0;MAX_PLY];2],
             history: [[0;64];12],
             pv_table: [[0;MAX_PLY];MAX_PLY],
@@ -43,29 +51,39 @@ impl Searcher {
             score_pv: false,
             full_depth_moves: 3,
             reduction_limit: 2,
-            stop: false,
+            inc: 0,
+            movetime: -1,
+            movestogo: 30,
+            playtime: -1,
+            timeset: false,
+            stoptime: 0,
         }
     }
 
-    pub fn stop(&mut self) {
-        self.stop = true;
+    pub fn communicate(&mut self) {
+        if self.timeset && SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() > self.stoptime {
+            unsafe { STOP = true; }
+        }
     }
 
     pub fn search_position(&mut self, position: &mut Position, depth: u8) {
         // reset search variables
-        self.nodes = 0;
-        self.follow_pv = false;
-        self.score_pv = false;
-        // rust compiler automatically changes these to memset
-        self.killers.iter_mut().for_each(|x| *x = [0;MAX_PLY]);
-        self.history.iter_mut().for_each(|x| *x = [0;64]);
-        self.pv_table.iter_mut().for_each(|x| *x = [0;MAX_PLY]);
-        self.pv_length.iter_mut().for_each(|x| *x = 0);
+        unsafe { STOP = false; }
+        // self.nodes = 0;
+        // self.follow_pv = false;
+        // self.score_pv = false;
+        // // rust compiler automatically changes these to memset
+        // self.killers.iter_mut().for_each(|x| *x = [0;MAX_PLY]);
+        // self.history.iter_mut().for_each(|x| *x = [0;64]);
+        // self.pv_table.iter_mut().for_each(|x| *x = [0;MAX_PLY]);
+        // self.pv_length.iter_mut().for_each(|x| *x = 0);
         // define initial apha beta bounds
         // let mut alpha = -INFINITY;
         // let mut beta = INFINITY;
         // iterative deepening
         for current_depth in 1..depth+1 {
+            // return 0 if time is up
+            if unsafe { STOP } { break; }
             // enable follow PV flag
             self.follow_pv = true;
             // find best move within a given position
@@ -81,7 +99,7 @@ impl Searcher {
             // alpha = score - 50;
             // beta = score + 50;
             
-            print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, self.time.elapsed().as_millis());
+            print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
             // loop over the moves within a PV lone
             for count in 0..self.pv_length[0] {
                 // print PV move
@@ -89,6 +107,10 @@ impl Searcher {
                 print!(" ");
             }
             println!();
+            // check if we have forced mate so we can stop search
+            if self.pv_length[0] < current_depth-1 {
+                break;
+            }
         }
 
         // bestmove
@@ -116,6 +138,11 @@ impl Searcher {
     }
 
     pub fn quiescence(&mut self, position: &mut Position, mut alpha: i16, beta: i16) -> i16 {
+        // every 2047 nodes, check if time is up
+        if self.nodes & 2047 == 0 {
+            self.communicate();
+        }
+        
         // increment nodes
         self.nodes += 1;
         // evaluate position
@@ -156,7 +183,8 @@ impl Searcher {
             position.unmake(move_);
             // decrement ply
             self.ply -= 1;
-
+            // check if time is up
+            if unsafe { STOP } { return 0; }
             // fail-hard beta cutoff
             if score >= beta {
                 // node (move) fails high
@@ -171,6 +199,10 @@ impl Searcher {
     }
 
     pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, mut beta: i16, mut depth: u8, mut null_move: bool) -> i16 {
+        // every 2047 nodes
+        if self.nodes & 2047 == 0 {
+            self.communicate();
+        }
         // init PV lenght
         self.pv_length[self.ply as usize] = self.ply;
 
@@ -188,10 +220,10 @@ impl Searcher {
         }
 
         // mate distance pruning
-        if alpha < -MATE {
-            alpha = -MATE;
-        } if beta > MATE-1 {
-            beta = MATE-1;
+        if alpha < -MATE_VALUE {
+            alpha = -MATE_VALUE;
+        } if beta > MATE_VALUE-1 {
+            beta = MATE_VALUE-1;
         } if alpha >= beta {
             return alpha;
         }
@@ -234,6 +266,8 @@ impl Searcher {
                     // take back null move
                     position.side ^= 1;
                     position.enpassant = enpassant;
+                    // return 0 if time is up
+                    if unsafe { STOP } { return 0; }
                     // fail-hard beta cutoff
                     if score >= beta {
                         // node (move) fails high
@@ -315,6 +349,8 @@ impl Searcher {
             position.unmake(move_);
             // decrement ply
             self.ply -= 1;
+            // return 0 if time is up
+            if unsafe { STOP } { return 0; }
             // increment the number of moves searched so far
             moves_searched += 1;
 
@@ -354,7 +390,7 @@ impl Searcher {
         if legal_moves == 0 {
             if in_check {
                 // checkmate
-                return -MATE+self.ply as i16;
+                return -MATE_SCORE+self.ply as i16;
             } else {
                 // stalemate
                 return 0;

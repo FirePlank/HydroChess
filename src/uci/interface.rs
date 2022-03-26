@@ -1,6 +1,8 @@
 use std::io;
 use std::io::Write;
 
+use std::thread;
+
 // use crate::r#move::movegen::*;
 use crate::board::position::*;
 use crate::search::*;
@@ -14,7 +16,7 @@ const AUTHOR: &str = "FirePlank";
 pub fn main_loop() {
     let mut cmd = String::new();
     let mut position = Position::empty();
-    let mut searcher = Searcher::new();
+
     loop {
         // get UCI input inline
         io::stdout().flush().unwrap_or_else(|error| {
@@ -42,12 +44,13 @@ pub fn main_loop() {
                 position = Position::new();
             },
             "go" => {
-                position.parse_go(&mut searcher, &cmd);
+                let mut pos = position.clone();
+                thread::spawn( move || {
+                    pos.parse_go(&cmd);
+                });
             },
             "isready" => println!("readyok"),
-            "stop" => {
-                // TODO: stop search
-            }
+            "stop" => unsafe { STOP = true },
             "quit" => break,
             "." => (),
             _ => println!("info string unknown UCI command: {}", cmd)
