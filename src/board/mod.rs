@@ -9,3 +9,6 @@ pub use magic::*;
 
 pub mod position;
 pub use position::*;
+
+pub mod zobrist;
+pub use zobrist::*;

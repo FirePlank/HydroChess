@@ -1,6 +1,5 @@
 use std::io;
 use std::io::Write;
-
 use std::thread;
 
 // use crate::r#move::movegen::*;
@@ -8,6 +7,7 @@ use crate::board::position::*;
 use crate::search::*;
 // use crate::r#move::encode::*;
 use crate::uci::*;
+use crate::cache::*;
 
 const NAME: &str = "HydroChess";
 const AUTHOR: &str = "FirePlank";
@@ -42,6 +42,11 @@ pub fn main_loop() {
             },
             "ucinewgame" => {
                 position = Position::new();
+                unsafe { 
+                    TT.reset(); 
+                    REPETITION.iter_mut().for_each(|x| *x = 0);
+                    REP_INDEX = 0;
+                }
             },
             "go" => {
                 let mut pos = position.clone();

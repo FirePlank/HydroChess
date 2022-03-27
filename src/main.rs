@@ -16,6 +16,8 @@ use search::*;
 mod evaluation;
 use evaluation::*;
 
+mod cache;
+use cache::*;
 // use std::thread;
 
 // FEN debug positions
@@ -33,12 +35,11 @@ fn main() {
     init_all();
 
     // debug mode variable
-    let debug = true;
+    let debug = false;
     if debug {
         let mut position = Position::from_fen("8/8/8/8/2K1krr1/8/8/8 b - - 0 1");
         let mut searcher = Searcher::new();
         searcher.search_position(&mut position, 100);
-
     } else {
         // start the main UCI loop to handle commands
         main_loop();

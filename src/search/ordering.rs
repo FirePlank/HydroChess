@@ -28,9 +28,9 @@ pub const MVV_LVA: [[u16;6];6] = [
 ];
 
 impl Searcher {
-    pub fn sort_moves(&mut self, position: &Position, move_list: MoveList) -> [(u16, u32); 356] {
+    pub fn sort_moves(&mut self, position: &Position, move_list: MoveList) -> [(u32, u32); 356] {
         // sort moves
-        let mut move_scores: [(u16, u32);356] = [(0, 0);356];
+        let mut move_scores: [(u32, u32);356] = [(0, 0);356];
     
         // score all the moves within a move list
         for count in 0..move_list.count as usize {
@@ -41,7 +41,7 @@ impl Searcher {
         return move_scores;
     }
 
-    pub fn score_move(&mut self, position: &Position, move_: u32) -> u16 {
+    pub fn score_move(&mut self, position: &Position, move_: u32) -> u32 {
         // if move scoring is allowed
         if self.score_pv {
             // make sure we are dealing with PV move
@@ -53,7 +53,7 @@ impl Searcher {
             }
         }
 
-        let mut score = 0;
+        let mut score: u32 = 0;
         let promoted = promoted(move_);
         // score capture move
         if capture(move_) != 0 {
@@ -64,10 +64,10 @@ impl Searcher {
                 return score;
             } if promoted != 0 {
                 // promotions always first
-                return score+2000+PIECE_VALUE[(promoted%6) as usize] as u16;
+                return score+2000+PIECE_VALUE[(promoted%6) as usize] as u32;
             }
             // score move by MVV LVA lookup [source piece][target piece]
-            return score + MVV_LVA[(get_piece(move_)%6) as usize][position.get_square_piece(target(move_) as usize)%6];
+            return score + MVV_LVA[(get_piece(move_)%6) as usize][position.get_square_piece(target(move_) as usize)%6] as u32;
         }
         // score quiet move
         else {
@@ -79,7 +79,7 @@ impl Searcher {
                 score += 2500;
             } else {
                 // score history move
-                score += self.history[get_piece(move_) as usize][target(move_) as usize] as u16;
+                score += self.history[get_piece(move_) as usize][target(move_) as usize] as u32;
             }
 
             // reward for castling
@@ -90,7 +90,7 @@ impl Searcher {
         
         if promoted != 0 {
             // promotions always first
-            score += 9500 + PIECE_VALUE[(promoted%6) as usize] as u16;
+            score += 9500 + PIECE_VALUE[(promoted%6) as usize] as u32;
         }
 
         return score;

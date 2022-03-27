@@ -1,6 +1,9 @@
 use super::bitboard::*;
 use super::magic::*;
 use super::position::*;
+use crate::search::*;
+use crate::cache::TranspositionTable;
+use super::zobrist::init_zobrist;
 
 // make A file be 0s
 const NOT_A_FILE: Bitboard = Bitboard(18374403900871474942);
@@ -447,4 +450,12 @@ pub fn init_all() {
     // init slider pieces attacks
     init_sliders_attacks(true); // bishop
     init_sliders_attacks(false); // rook
+
+    // init random hash keys
+    init_zobrist();
+
+    // init global transposition table
+    unsafe {
+        TT = TranspositionTable::new(24)
+    };
 }

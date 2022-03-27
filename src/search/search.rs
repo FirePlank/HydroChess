@@ -1,16 +1,26 @@
 use crate::board::position::*;
+use crate::board::zobrist::*;
 use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 use crate::evaluation::*;
+use crate::cache::*;
 
 use std::time::{SystemTime, UNIX_EPOCH};
-
+ 
 pub const MAX_PLY: usize = 127;
 pub const MATE_VALUE: i16 = i16::MAX-150;
 pub const MATE_SCORE: i16 = i16::MAX-300;
 pub const INFINITY: i16 = i16::MAX;
+pub const NO_ENTRY: i16 = INFINITY-500;
 // stop search if time is up
 pub static mut STOP: bool = false;
+pub static mut REPETITION: [u64;1000] = [0;1000]; // I don't think the bot will play a game longer than 500 moves
+pub static mut REP_INDEX: usize = 0;
+
+pub static mut TT: TranspositionTable = TranspositionTable {
+    table: vec![],
+    size: 0,
+};
 
 pub struct Searcher {
     pub ply: u8,
@@ -60,6 +70,20 @@ impl Searcher {
         }
     }
 
+    pub fn is_repetition(&self, position: &mut Position) -> bool {
+        unsafe {
+            // loop over repetition indices range
+            for index in 0..REP_INDEX {
+                // if repetition is found
+                if REPETITION[index] == position.hash {
+                    return true;
+                }
+            }
+            // if no repetition found
+            return false;
+        }
+    }
+
     pub fn communicate(&mut self) {
         if self.timeset && SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() > self.stoptime {
             unsafe { STOP = true; }
@@ -69,18 +93,7 @@ impl Searcher {
     pub fn search_position(&mut self, position: &mut Position, depth: u8) {
         // reset search variables
         unsafe { STOP = false; }
-        // self.nodes = 0;
-        // self.follow_pv = false;
-        // self.score_pv = false;
-        // // rust compiler automatically changes these to memset
-        // self.killers.iter_mut().for_each(|x| *x = [0;MAX_PLY]);
-        // self.history.iter_mut().for_each(|x| *x = [0;64]);
-        // self.pv_table.iter_mut().for_each(|x| *x = [0;MAX_PLY]);
-        // self.pv_length.iter_mut().for_each(|x| *x = 0);
-        // define initial apha beta bounds
-        // let mut alpha = -INFINITY;
-        // let mut beta = INFINITY;
-        // iterative deepening
+
         for current_depth in 1..depth+1 {
             // return 0 if time is up
             if unsafe { STOP } { break; }
@@ -98,8 +111,17 @@ impl Searcher {
             // set up the window for the next iteration
             // alpha = score - 50;
             // beta = score + 50;
-            
-            print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
+            let mate;
+            if score > -MATE_VALUE && score < -MATE_SCORE {
+                print!("info score mate {} depth {} nodes {} time {} pv ", -(self.pv_length[0] as i16)/2-1, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
+                mate = true;
+            } else if score > MATE_SCORE && score < MATE_VALUE {
+                print!("info score mate {} depth {} nodes {} time {} pv ", self.pv_length[0]/2+1, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
+                mate = true;
+            } else {
+                print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
+                mate = false;
+            }
             // loop over the moves within a PV lone
             for count in 0..self.pv_length[0] {
                 // print PV move
@@ -107,8 +129,9 @@ impl Searcher {
                 print!(" ");
             }
             println!();
-            // check if we have forced mate so we can stop search
-            if self.pv_length[0] < current_depth-1 {
+            
+            // if forced mate exists there is no need to search further
+            if mate {
                 break;
             }
         }
@@ -145,9 +168,10 @@ impl Searcher {
         
         // increment nodes
         self.nodes += 1;
+
         // evaluate position
         let eval = evaluate(position);
-        
+
         // fail-hard beta cutoff
         if eval >= beta {
             // node (move) fails high
@@ -156,6 +180,12 @@ impl Searcher {
             // PV node (move)
             alpha = eval;
         }
+
+        // too deep, return eval
+        if self.ply >= MAX_PLY as u8 {
+            return eval;
+        }
+        
 
         // create move list
         let mut move_list = MoveList::new();
@@ -184,21 +214,41 @@ impl Searcher {
             // decrement ply
             self.ply -= 1;
             // check if time is up
-            if unsafe { STOP } { return 0; }
+            if unsafe { STOP } { return NO_ENTRY; }
             // fail-hard beta cutoff
-            if score >= beta {
-                // node (move) fails high
-                return beta;
-            } else if score > alpha {
+            if score > alpha {
                 // PV node (move)
                 alpha = score;
+                if score >= beta {
+                    // node (move) fails high
+                    return beta;
+                }
             }
         }
         // node (move) fails low
         return alpha;
     }
 
-    pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, mut beta: i16, mut depth: u8, mut null_move: bool) -> i16 {
+    pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, mut beta: i16, mut depth: u8, null_move: bool) -> i16 {
+        let pv_node = beta.wrapping_sub(alpha) > 1;
+        let mut best_move = BestMove { value: 0 };
+        let mut hash_flag = LOWER_BOUND;
+
+        let mut score: i16;
+
+        // if position repeats, return 0 (draw)
+        if self.ply != 0 && self.is_repetition(position) {
+            return 0;
+        }
+
+        // read hash entry
+        if self.ply != 0 && !pv_node {
+            score = unsafe { TT.probe(alpha, beta, &mut best_move, depth, self.ply, position.hash) };
+            if score != NO_ENTRY {
+                // return score
+                return score;
+            }
+        }
         // every 2047 nodes
         if self.nodes & 2047 == 0 {
             self.communicate();
@@ -206,8 +256,6 @@ impl Searcher {
         // init PV lenght
         self.pv_length[self.ply as usize] = self.ply;
 
-        let pv_node = beta.wrapping_sub(alpha) > 1;
-        let mut score: i16;
         
         // recursion escape condition
         if depth == 0 {
@@ -215,7 +263,7 @@ impl Searcher {
         }
 
         // too deep, return eval
-        if self.ply == MAX_PLY as u8 {
+        if self.ply >= MAX_PLY as u8 {
             return evaluate(position);
         }
 
@@ -255,19 +303,40 @@ impl Searcher {
             // null move pruning
             if null_move {
                 if self.ply != 0 && depth > 2 && eval >= beta {
-                    // make a null move
-                    position.side ^= 1;
-                    // preserve enpassant
+                    self.ply += 1;
+
+                    // increment rep_index & store hash key
+                    unsafe {
+                        REP_INDEX += 1;
+                        REPETITION[REP_INDEX] = position.hash;
+                    }
+                    // hash enpassant if available
+                    if position.enpassant != Square::NoSquare {
+                        position.hash ^= unsafe { ZOBRIST_EP_KEYS[position.enpassant as usize] };
+                    }
+                    // preserve enpassant and hash
                     let enpassant = position.enpassant;
                     position.enpassant = Square::NoSquare;
+                    // make a null move
+                    position.side ^= 1;
+                    position.hash ^= unsafe { ZOBRIST_TURN };
                     
                     // search moves with reduced depth to find beta cutoffs
                     let score = -self.negamax(position, -beta, -beta+1, depth-1-self.reduction_limit, false);
                     // take back null move
                     position.side ^= 1;
+                    position.hash ^= unsafe { ZOBRIST_TURN };
                     position.enpassant = enpassant;
+                    if position.enpassant != Square::NoSquare {
+                        position.hash ^= unsafe { ZOBRIST_EP_KEYS[enpassant as usize] };
+                    }
+
+                    self.ply -= 1;
+                    // decrement repetition index
+                    unsafe { REP_INDEX -= 1; }
+
                     // return 0 if time is up
-                    if unsafe { STOP } { return 0; }
+                    if unsafe { STOP } { return NO_ENTRY; }
                     // fail-hard beta cutoff
                     if score >= beta {
                         // node (move) fails high
@@ -322,6 +391,12 @@ impl Searcher {
             self.ply += 1;
             legal_moves += 1;
 
+            // increment rep_index & store hash key
+            unsafe {
+                REP_INDEX += 1;
+                REPETITION[REP_INDEX] = position.hash;
+            }
+
             // full depth search
             if moves_searched == 0 {
                 // do normal alpha-beta search
@@ -349,53 +424,63 @@ impl Searcher {
             position.unmake(move_);
             // decrement ply
             self.ply -= 1;
+            // decrement repetition index
+            unsafe { REP_INDEX -= 1; }
             // return 0 if time is up
             if unsafe { STOP } { return 0; }
             // increment the number of moves searched so far
             moves_searched += 1;
 
             // fail-hard beta cutoff
-            if score >= beta {
-                // on quiet moves
-                if capture(move_) == 0 {
-                    // store killer moves
-                    self.killers[1][self.ply as usize] = self.killers[0][self.ply as usize];
-                    self.killers[0][self.ply as usize] = move_;
-                }
-                // node (move) fails high
-                return beta;
-            } else if score > alpha {
+            if score > alpha {
+                hash_flag = EXACT;
+                best_move.value = move_;
+                // PV node (move)
+                alpha = score;
+
                 // on quiet move
                 if capture(move_) == 0 {  
                     // store history moves
                     self.history[get_piece(move_) as usize][target(move_) as usize] += depth as u32;
                 }
-                // PV node (move)
-                alpha = score;
 
                 // write PV move
                 self.pv_table[self.ply as usize][self.ply as usize] = move_;
-
                 // loop over the next ply
                 for next_ply in self.ply+1..self.pv_length[self.ply as usize+1] {
                     // copy move from deeper ply into a current ply's line
                     self.pv_table[self.ply as usize][next_ply as usize] = self.pv_table[self.ply as usize+1][next_ply as usize];
                 }
-
                 // adjust PV lenght
                 self.pv_length[self.ply as usize] = self.pv_length[self.ply as usize+1];
+
+                if score >= beta {
+                    // store hash entry with the score equal to beta
+                    unsafe { TT.write(position.hash, beta, best_move.value, depth, self.ply, UPPER_BOUND); }
+
+                    // on quiet moves
+                    if capture(move_) == 0 {
+                        // store killer moves
+                        self.killers[1][self.ply as usize] = self.killers[0][self.ply as usize];
+                        self.killers[0][self.ply as usize] = move_;
+                    }
+                    // node (move) fails high
+                    return beta;
+                }
             }
         }
         // check if checkmate or stalemate
         if legal_moves == 0 {
             if in_check {
                 // checkmate
-                return -MATE_SCORE+self.ply as i16;
+                return -MATE_VALUE+self.ply as i16;
             } else {
                 // stalemate
                 return 0;
             }
         }
+        // store hash entry with the score equal to alpha
+        unsafe { TT.write(position.hash, alpha, best_move.value, depth, self.ply, hash_flag); }
         // node (move) fails low
         return alpha;
     }

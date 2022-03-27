@@ -3,8 +3,9 @@ use std::mem;
 
 use super::attacks::*;
 use super::bitboard::*;
-use crate::r#move::encode::*;
+use crate::r#move::*;
 use crate::evaluation::*;
+use crate::board::*;
 
 
 #[allow(dead_code)]
@@ -113,13 +114,12 @@ pub struct Position {
     pub castling_rights_stack: Vec<u8>,
     pub en_passant_stack: Vec<Square>,
     pub hash_stack: Vec<u64>,
-    pub pawn_hash_stack: Vec<u64>,
     pub material_scores: [[i16; 2]; 2],
     pub pst_scores: [[i16; 2]; 2],
 }
 impl Position {
     pub fn new() -> Position {
-        Position {
+        let mut pos = Position {
             // initialize bitboards to the default chess position at the start of a standard game
             bitboards: [
                 Bitboard(71776119061217280),
@@ -151,10 +151,11 @@ impl Position {
             castling_rights_stack: Vec::with_capacity(32),
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
-            pawn_hash_stack: Vec::with_capacity(32),
             material_scores: [[14560, 14740], [14560, 14740]],
             pst_scores: [[348, -92]; 2],
-        }
+        };
+        pos.hash = pos.generate_hash_key();
+        return pos;
     }
     pub fn empty() -> Position {
         Position {
@@ -172,7 +173,6 @@ impl Position {
             castling_rights_stack: Vec::with_capacity(32),
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
-            pawn_hash_stack: Vec::with_capacity(32),
             material_scores: [[0; 2]; 2],
             pst_scores: [[0; 2]; 2],
         }
@@ -305,7 +305,6 @@ impl Position {
         self.castling_rights_stack.push(self.castle);
         self.en_passant_stack.push(self.enpassant);
         self.hash_stack.push(self.hash);
-        self.pawn_hash_stack.push(self.pawn_hash);
 
         // move piece
         self.move_piece(
@@ -314,6 +313,14 @@ impl Position {
             target_square as usize,
             source_square as usize,
         );
+
+        // hash piece
+        unsafe {
+            // remove piece from source square in hash key
+            self.hash ^= ZOBRIST_KEYS[piece as usize][source_square as usize];
+            // add piece to target square in hash key
+            self.hash ^= ZOBRIST_KEYS[piece as usize][target_square as usize];
+        }
 
         if capture != 0 {
             // pick up bitboard piece index ranges depending on side
@@ -337,32 +344,49 @@ impl Position {
                     // remove it from corresponding bitboard
                     self.captured_pieces_stack.push(bb_piece as u8);
                     self.remove_piece(opp_color as u8, bb_piece as u8, target_square as u8);
+                    unsafe {
+                        // remove piece from hash key
+                        self.hash ^= ZOBRIST_KEYS[bb_piece as usize][target_square as usize];
+                    }
+                    
                     break;
                 }
             }
             // handle pawn promotions
         }
         if promoted != 0 {
-            // erase the pawn from the target square
-            self.remove_piece(
-                self.side as u8,
+            // erase the pawn from the target square and remove from hash key
+            unsafe {
                 if self.side == 0 {
-                    Piece::WhitePawn as u8
+                    self.remove_piece(0, Piece::WhitePawn as u8, target_square);
+                    self.hash ^= ZOBRIST_KEYS[Piece::WhitePawn as usize][target_square as usize];
                 } else {
-                    Piece::BlackPawn as u8
-                },
-                target_square,
-            );
+                    self.remove_piece(1, Piece::BlackPawn as u8, target_square);
+                    self.hash ^= ZOBRIST_KEYS[Piece::BlackPawn as usize][target_square as usize];
+                }
+
+                // add promoted piece to hash key
+                self.hash ^= ZOBRIST_KEYS[promoted as usize][target_square as usize];
+            }
             // set up promoted piece on chess board
             self.add_piece(self.side as u8, promoted, target_square);
         }
         // handle enpassant captures
-        if enpassant != 0 {
-            // erase the pawn from the target square
-            if self.side == 0 {
-                self.remove_piece(opp_color as u8, Piece::BlackPawn as u8, target_square + 8);
-            } else {
-                self.remove_piece(opp_color as u8, Piece::WhitePawn as u8, target_square - 8);
+        unsafe {
+            if enpassant != 0 {
+                // erase the pawn from the target square
+                if self.side == 0 {
+                    self.remove_piece(opp_color as u8, Piece::BlackPawn as u8, target_square + 8);
+                    // hash enpassant
+                    self.hash ^= ZOBRIST_KEYS[Piece::BlackPawn as usize][target_square as usize + 8];
+                } else {
+                    self.remove_piece(opp_color as u8, Piece::WhitePawn as u8, target_square - 8);
+                    // hash enpassant
+                    self.hash ^= ZOBRIST_KEYS[Piece::WhitePawn as usize][target_square as usize - 8];
+                }
+            }
+            if self.enpassant != Square::NoSquare {
+                self.hash ^= ZOBRIST_EP_KEYS[self.enpassant as usize];
             }
         }
         self.enpassant = Square::NoSquare;
@@ -390,6 +414,12 @@ impl Position {
                         Square::F1 as usize,
                         Square::H1 as usize,
                     );
+
+                    // hash rook
+                    unsafe {
+                        self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][Square::H1 as usize];
+                        self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][Square::F1 as usize];
+                    }
                 }
                 58 => {
                     // move A rook white
@@ -399,6 +429,12 @@ impl Position {
                         Square::D1 as usize,
                         Square::A1 as usize,
                     );
+
+                    // hash rook
+                    unsafe {
+                        self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][Square::A1 as usize];
+                        self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][Square::D1 as usize];
+                    }
                 }
                 6 => {
                     // move H rook black
@@ -408,6 +444,12 @@ impl Position {
                         Square::F8 as usize,
                         Square::H8 as usize,
                     );
+
+                    // hash rook
+                    unsafe {
+                        self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][Square::H8 as usize];
+                        self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][Square::F8 as usize];
+                    }
                 }
                 2 => {
                     // move A rook black
@@ -417,29 +459,45 @@ impl Position {
                         Square::D8 as usize,
                         Square::A8 as usize,
                     );
+
+                    // hash rook
+                    unsafe {
+                        self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][Square::A8 as usize];
+                        self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][Square::D8 as usize];
+                    }
                 }
                 _ => panic!("Invalid castling move: {}", target_square),
             }
+        }
+
+        // hash castling
+        unsafe {
+            self.hash ^= ZOBRIST_CASTLING_KEYS[self.castle as usize];
         }
 
         // update castling rights
         self.castle &= CASTLING_RIGHTS[source_square as usize];
         self.castle &= CASTLING_RIGHTS[target_square as usize];
 
-        // reset occupancy
-        // self.occupancies[0].0 = 0;
-        // self.occupancies[1].0 = 0;
-
-        // // update occupancy
-        // for i in Piece::WhitePawn as usize..Piece::WhiteKing as usize + 1 {
-        //     self.occupancies[0].0 |= self.bitboards[i].0;
-        // }
-        // for i in Piece::BlackPawn as usize..Piece::BlackKing as usize + 1 {
-        //     self.occupancies[1].0 |= self.bitboards[i].0;
-        // }
-
+        // hash castling
+        unsafe {
+            self.hash ^= ZOBRIST_CASTLING_KEYS[self.castle as usize];
+        }
         // change position variables
         self.side = opp_color;
+
+        // hash side
+        unsafe {
+            self.hash ^= ZOBRIST_TURN;
+        }
+
+        // DEBUG: check hash if correct
+        // let hash_from = self.generate_hash_key();
+        // if hash_from != self.hash {
+        //     Move(move_).show();
+        //     println!("      WRONG: {} != {}", hash_from, self.hash);
+        // }
+
         if self.side == 0 {
             self.fullmove += 1;
             // check if the move is illegal
@@ -474,7 +532,6 @@ impl Position {
         self.castle = self.castling_rights_stack.pop().unwrap();
         self.enpassant = self.en_passant_stack.pop().unwrap();
         self.hash = self.hash_stack.pop().unwrap();
-        self.pawn_hash = self.pawn_hash_stack.pop().unwrap();
 
         // check flags to determine how to proceed with undoing the move
         if castling != 0 {
@@ -615,6 +672,8 @@ impl Position {
                 castling
             }
         );
+        // print hash key
+        println!("   Hash: {}", self.hash);
         // print halfmove clock
         println!("   Halfmove clock: {}", self.halfmove);
         // print fullmove number
@@ -791,9 +850,8 @@ impl Position {
         position.castling_rights_stack = Vec::with_capacity(32);
         position.en_passant_stack = Vec::with_capacity(32);
         position.hash_stack = Vec::with_capacity(32);
-        position.pawn_hash_stack = Vec::with_capacity(32);
 
-        position.hash = 0;
+        position.hash = position.generate_hash_key();
         position.pawn_hash = 0;
 
         // calculate piece square table score and material score
@@ -895,11 +953,3 @@ impl Position {
         println!("   a b c d e f g h\n");
     }
 }
-
-// pub static mut POSITION: Position = Position {
-//     bitboards: [Bitboard(0); 12],
-//     occupancies: [Bitboard(0); 3],
-//     side: Side::WHITE,
-//     enpassant: Square::NoSquare,
-//     castle: 15,
-// };

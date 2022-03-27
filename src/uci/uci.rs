@@ -95,8 +95,8 @@ impl Position {
 
         let mut searcher = Searcher::new();
         let phase = self.phase();
-        let addon = if phase as i32 - 22 > 0 { phase - 3 } else {
-            if phase as i32 - 15 > 0 { phase-1 } else { 
+        let addon = if phase as i32 - 22 > 0 { phase - 7 } else {
+            if phase as i32 - 15 > 0 { phase - 4 } else { 
                 if phase as i32 - 7 > 0 { phase } else { 0 }
             }
         };
@@ -118,7 +118,7 @@ impl Position {
                             println!("info string Invalid parameter value given: {}", error);
                             return -1;
                         });
-                        if searcher.playtime != -1 { searcher.playtime += 6; }
+                        if searcher.playtime != -1 { searcher.playtime += 7; }
                     }
                 },
                 "btime" => {
@@ -127,7 +127,7 @@ impl Position {
                             println!("info string Invalid parameter value given: {}", error);
                             return -1;
                         });
-                        if searcher.playtime != -1 { searcher.playtime += 6; }
+                        if searcher.playtime != -1 { searcher.playtime += 7; }
                     }
                 },
                 "winc" => {
@@ -136,7 +136,7 @@ impl Position {
                             println!("info string Invalid parameter value given: {}", error);
                             return 0;
                         });
-                        if searcher.inc != 0 { searcher.inc += 5; }
+                        if searcher.inc != 0 { searcher.inc += 6; }
                     }
                 },
                 "binc" => {
@@ -145,7 +145,7 @@ impl Position {
                             println!("info string Invalid parameter value given: {}", error);
                             return 0;
                         });
-                        if searcher.inc != 0 { searcher.inc += 5; }
+                        if searcher.inc != 0 { searcher.inc += 6; }
                     }
                 },
                 "movestogo" => {
@@ -175,20 +175,6 @@ impl Position {
             searcher.timeset = true;
             searcher.playtime /= searcher.movestogo;
             searcher.stoptime = searcher.time.duration_since(UNIX_EPOCH).unwrap().as_millis() + (searcher.playtime as f32*factor) as u128 + (searcher.inc as f32*factor) as u128;
-
-            // let phase = self.phase();
-            // let addon = if phase as i32 - 23 > 0 { phase - 18 } else {
-            //     if phase as i32 - 17 > 0 { phase - 8 } else { 
-            //         if phase as i32 - 10 > 0 { phase - 4 } else { 0 }
-            //     }
-            // };
-            // let sub = if phase < 10 { 10 - phase } else { 0 };
-            // print!("info string {} ", searcher.stoptime);
-            // let mut factor = (1.0-(((phase as f32-addon as f32)+sub as f32)/24f32));
-            // if (searcher.stoptime as f32*factor) as u128 > searcher.time.duration_since(UNIX_EPOCH).unwrap().as_millis() {
-            //     factor = 0.5;
-            // }
-            // searcher.stoptime = (searcher.stoptime as f32*factor) as u128;
         }
         
         if depth == 0 { depth = MAX_PLY as u8; }
@@ -243,6 +229,7 @@ pub fn parse_position(cmd: &str) -> Position {
                 let move_ = position.parse_uci(&move_);
                 if move_ != 0 {
                     position.make(move_);
+
                 } else {
                     println!("info string Invalid move given");
                     return Position::empty();
