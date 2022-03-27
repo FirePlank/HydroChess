@@ -5,6 +5,27 @@ use crate::evaluation::*;
 use crate::movegen::*;
 use crate::search::*;
 
+pub static mut EVAL: Eval = Eval::new();
+pub struct Eval {
+    pub file_masks: [u64; 64],
+    pub rank_masks: [u64; 64],
+    pub isolated_masks: [u64; 64],
+    pub white_passed_masks: [u64; 64],
+    pub black_passed_masks: [u64; 64],
+}
+
+impl Eval {
+    pub const fn new() -> Eval {
+        Eval {
+            file_masks: [0; 64],
+            rank_masks: [0; 64],
+            isolated_masks: [0; 64],
+            white_passed_masks: [0; 64],
+            black_passed_masks: [0; 64],
+        }
+    }
+}
+
 // evaluation function
 pub fn evaluate(position: &Position) -> i16 {
     let mut score = 0;
@@ -32,6 +53,103 @@ pub fn evaluate(position: &Position) -> i16 {
 
     // return final evaluation based on side
     return if position.side == 0 { score } else { -score };
+}
+
+// set file or rank mask for a given square
+pub fn set_file_rank_mask(file_num: i8, rank_num: i8) -> Bitboard {
+    // file or rank mask
+    let mut mask = Bitboard(0);
+
+    // loop over ranks
+    for rank in 0..8 {
+        // loop over files
+        for file in 0..8 {
+            // init square
+            let square = rank * 8 + file;
+            if file_num != -1 {
+                // on file match
+                if file == file_num {
+                    mask.set(square as usize);
+                }
+            } else if rank_num != -1 {
+                // on rank match
+                if rank == rank_num {
+                    mask.set(square as usize);
+                }
+            }
+        }
+    }
+
+    // return mask
+    return mask;
+}
+
+// init evaluation masks
+pub fn init_evaluation_masks() -> Eval {
+    let mut eval = Eval::new();
+
+    // init file masks
+    for rank in 0..8 {
+        for file in 0..8 {
+            let square = rank * 8 + file;
+            // init file mask for a current square
+            eval.file_masks[square as usize] |= set_file_rank_mask(file, -1).0;
+        }
+    }
+    // init rank masks
+    for rank in 0..8 {
+        for file in 0..8 {
+            let square = rank * 8 + file;
+            // init rank mask for a current square
+            eval.rank_masks[square as usize] |= set_file_rank_mask(-1, rank).0;
+        }
+    }
+    // init isolated masks
+    for rank in 0..8 {
+        for file in 0..8 {
+            let square = rank * 8 + file;
+            // init isolated mask for a current square
+            eval.isolated_masks[square as usize] |= set_file_rank_mask(file-1, -1).0;
+            eval.isolated_masks[square as usize] |= set_file_rank_mask(file+1, -1).0;
+        }
+    }
+
+    // init white passed pawn masks
+    for rank in 1..8 {
+        for file in 0..8 {
+            let square = rank * 8 + file;
+            // init white passed pawn mask for a current square
+            eval.white_passed_masks[square as usize] |= set_file_rank_mask(file-1, -1).0;
+            eval.white_passed_masks[square as usize] |= set_file_rank_mask(file, -1).0;
+            eval.white_passed_masks[square as usize] |= set_file_rank_mask(file+1, -1).0;
+            
+            // loop over redundant ranks
+            for i in 0..(8 - rank) {
+                // reset redundant bits
+                eval.white_passed_masks[square as usize] &= !eval.rank_masks[((7-i)*8 + file) as usize];
+            }
+        }
+    }
+
+    // init black passed pawn masks
+    for rank in 0..7 {
+        for file in 0..8 {
+            let square = rank * 8 + file;
+            // init black passed pawn mask for a current square
+            eval.black_passed_masks[square as usize] |= set_file_rank_mask(file-1, -1).0;
+            eval.black_passed_masks[square as usize] |= set_file_rank_mask(file, -1).0;
+            eval.black_passed_masks[square as usize] |= set_file_rank_mask(file+1, -1).0;
+            
+            // loop over redundant ranks
+            for i in 0..rank+1 {
+                // reset redundant bits
+                eval.black_passed_masks[square as usize] &= !eval.rank_masks[(i * 8 + file) as usize];
+            }
+            Bitboard(eval.black_passed_masks[square as usize]).show();
+        }
+    }
+
+    return eval;
 }
 
 pub fn force_king_corner(position: &Position) -> i16 {
@@ -70,28 +188,6 @@ pub fn calculate_all(position: &mut Position) {
         }
         position.pst_scores[color_index][0] = pst_score;
         position.pst_scores[color_index][1] = pst_eg_score;
-        position.material_scores[color_index][0] = score;
-        position.material_scores[color_index][1] = score_eg;
-    }
-}
-
-// calculates material score in `Position`
-pub fn calculate_material(position: &mut Position) {
-    for color_index in 0..2 {
-        let mut score = 0;
-        let mut score_eg = 0;
-        for piece_index in 0..6 {
-            let index = if color_index == 0 { piece_index } else { piece_index + 6 };
-            let mut bitboard = position.bitboards[index];
-            while bitboard.0 != 0 {
-                let square = bitboard.ls1b();
-
-                score += PIECE_VALUE[piece_index];
-                score_eg += PIECE_VALUE_EG[piece_index];
-
-                bitboard.pop(square as usize);
-            }
-        }
         position.material_scores[color_index][0] = score;
         position.material_scores[color_index][1] = score_eg;
     }

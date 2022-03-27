@@ -1,6 +1,7 @@
 use super::bitboard::*;
 use super::magic::*;
 use super::position::*;
+use crate::evaluation::hce::{init_evaluation_masks, EVAL};
 use crate::search::*;
 use crate::cache::TranspositionTable;
 use super::zobrist::init_zobrist;
@@ -454,8 +455,12 @@ pub fn init_all() {
     // init random hash keys
     init_zobrist();
 
-    // init global transposition table
     unsafe {
-        TT = TranspositionTable::new(24)
+        // init global transposition table
+        TT = TranspositionTable::new(24);
+
+        // init evaluation masks
+        EVAL = init_evaluation_masks();
     };
+
 }

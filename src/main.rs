@@ -37,9 +37,28 @@ fn main() {
     // debug mode variable
     let debug = false;
     if debug {
-        let mut position = Position::from_fen("8/8/8/8/2K1krr1/8/8/8 b - - 0 1");
-        let mut searcher = Searcher::new();
-        searcher.search_position(&mut position, 100);
+    
+        // let mut position = Position::from_fen("r3k2r/4nq1P/1n2N1b1/1b6/4N3/5B2/1pRQPPPP/2BK4 w kq - 0 1");
+        // let mut searcher = Searcher::new();
+        // searcher.search_position(&mut position, 100);
+
+
+        
+        // info score cp -32 depth 1 nodes 232 time 2 pv
+        // info score cp -117 depth 2 nodes 657 time 6 pv c2b2 f7e6
+        // info score cp 806 depth 3 nodes 3864 time 34 pv e4d6 e8d7 d6f7 d7e6 c2b2 
+        // info score cp 806 depth 4 nodes 3905 time 35 pv e4d6 
+        // info score cp 806 depth 5 nodes 8102 time 72 pv e4d6 e8d7 d6f7 d7e6 f7g5 e6f5 c2b2 b5a4 
+        // info score cp 806 depth 6 nodes 11703 time 88 pv e4d6 
+        // info score cp 999 depth 7 nodes 90782 time 855 pv e4d6 e8d7 d6f7 b6d5 c2b2 b5a4 d1e1 d7e6 f7h8 a8h8 
+        // info score cp 999 depth 8 nodes 104731 time 906 pv e4d6 
+        // info score cp 1530 depth 9 nodes 491658 time 3452 pv e4d6 e8d7 e6c5 d7d8 d6f7 d8c8 f7d6 c8b8 c2b2 b5c6 b2b6 b8c7 f3c6 e7c6 
+        // info score cp 1530 depth 10 nodes 534065 time 3619 pv e4d6 
+        // info score cp 1540 depth 11 nodes 2044324 time 10195 pv e4d6 e8d7 e6c5 d7d8 d6f7 d8c8 f7d6 c8b8 c2b2 b5c6 f3c6 e7c6 b2b6 b8c7 b6b7 c7d8 d2d5 
+        // info score cp 1540 depth 12 nodes 2412327 time 11564 pv e4d6
+        // bestmove g4g1
+
+
     } else {
         // start the main UCI loop to handle commands
         main_loop();
