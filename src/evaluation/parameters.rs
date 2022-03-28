@@ -3,30 +3,41 @@ pub const PIECE_VALUE: [i16; 6] = [95, 370, 390, 590, 1100, 10000];
 pub const PIECE_VALUE_EG: [i16; 6] = [115, 310, 270, 680, 1300, 10000];
 pub const BISHOP_PAIR: i16 = 40;
 
-// pub static mut MOBILITY_OPENING: i16 = 5;
-// pub static mut MOBILITY_ENDING: i16 = 1;
-// pub static mut MOBILITY_CENTER_MULTIPLIER: i16 = 2;
+pub const MOBILITY_OPENING: i16 = 5;
+pub const MOBILITY_ENDING: i16 = 1;
+pub const MOBILITY_CENTER_MULTIPLIER: i16 = 2;
 
-// pub static mut DOUBLED_PAWN_OPENING: i16 = 4;
-// pub static mut DOUBLED_PAWN_ENDING: i16 = -10;
+pub const DOUBLED_PAWN_OPENING: i16 = -7;
+pub const DOUBLED_PAWN_ENDING: i16 = -20;
 
-// pub static mut ISOLATED_PAWN_OPENING: i16 = -29;
-// pub static mut ISOLATED_PAWN_ENDING: i16 = 0;
+pub const ISOLATED_PAWN_OPENING: i16 = -29;
+pub const ISOLATED_PAWN_ENDING: i16 = -2;
 
-// pub static mut CHAINED_PAWN_OPENING: i16 = 5;
-// pub static mut CHAINED_PAWN_ENDING: i16 = 11;
+pub const PASSING_PAWN_OPENING: i16 = 2;
+pub const PASSING_PAWN_ENDING: i16 = 54;
 
-// pub static mut PASSING_PAWN_OPENING: i16 = 2;
-// pub static mut PASSING_PAWN_ENDING: i16 = 54;
+pub const PAWN_SHIELD_OPENING: i16 = 12;
+pub const PAWN_SHIELD_ENDING: i16 = 5;
 
-// pub static mut PAWN_SHIELD_OPENING: i16 = 12;
-// pub static mut PAWN_SHIELD_ENDING: i16 = 5;
+pub const PAWN_SHIELD_OPEN_FILE_OPENING: i16 = -30;
+pub const PAWN_SHIELD_OPEN_FILE_ENDING: i16 = 2;
 
-// pub static mut PAWN_SHIELD_OPEN_FILE_OPENING: i16 = -30;
-// pub static mut PAWN_SHIELD_OPEN_FILE_ENDING: i16 = 2;
+pub const KING_ATTACKED_FIELDS_OPENING: i16 = -20;
+pub const KING_ATTACKED_FIELDS_ENDING: i16 = 0;
 
-// pub static mut KING_ATTACKED_FIELDS_OPENING: i16 = -20;
-// pub static mut KING_ATTACKED_FIELDS_ENDING: i16 = 0;
+
+// extract rank from square [square]
+#[rustfmt::skip]
+pub const GET_RANK: [u8;64] = [
+    7, 7, 7, 7, 7, 7, 7, 7,
+    6, 6, 6, 6, 6, 6, 6, 6,
+    5, 5, 5, 5, 5, 5, 5, 5,
+    4, 4, 4, 4, 4, 4, 4, 4,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0,
+];
 
 // Piece square tables
 #[rustfmt::skip]

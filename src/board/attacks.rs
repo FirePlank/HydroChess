@@ -1,7 +1,7 @@
 use super::bitboard::*;
 use super::magic::*;
 use super::position::*;
-use crate::evaluation::hce::{init_evaluation_masks, EVAL};
+use crate::evaluation::hce::{init_evaluation_masks, MASKS};
 use crate::search::*;
 use crate::cache::TranspositionTable;
 use super::zobrist::init_zobrist;
@@ -460,7 +460,7 @@ pub fn init_all() {
         TT = TranspositionTable::new(24);
 
         // init evaluation masks
-        EVAL = init_evaluation_masks();
+        MASKS = init_evaluation_masks();
     };
 
 }

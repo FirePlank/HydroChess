@@ -5,8 +5,18 @@ use crate::evaluation::*;
 use crate::movegen::*;
 use crate::search::*;
 
-pub static mut EVAL: Eval = Eval::new();
+pub const MASKS: Masks = Masks::new();
+
+#[derive(Debug, Clone)]
 pub struct Eval {
+    pub material_scores: [[i16; 2]; 2],
+    pub pst_scores: [[i16; 2]; 2],
+    pub isolated_pawns: [[i16; 2]; 2],
+    pub double_pawns: [[i16; 2]; 2],
+    pub passed_pawns: [[i16; 2]; 2],
+}
+
+pub struct Masks {
     pub file_masks: [u64; 64],
     pub rank_masks: [u64; 64],
     pub isolated_masks: [u64; 64],
@@ -17,6 +27,18 @@ pub struct Eval {
 impl Eval {
     pub const fn new() -> Eval {
         Eval {
+            material_scores: [[14560, 14740];2],
+            pst_scores: [[348, -92]; 2],
+            isolated_pawns: [[0, 0],[0, 0]],
+            double_pawns: [[0, 0],[0, 0]],
+            passed_pawns: [[0, 0],[0, 0]],
+        }
+    }
+}
+
+impl Masks {
+    pub const fn new() -> Masks {
+        Masks {
             file_masks: [0; 64],
             rank_masks: [0; 64],
             isolated_masks: [0; 64],
@@ -34,14 +56,20 @@ pub fn evaluate(position: &Position) -> i16 {
 
     if eg {
         // add material score
-        score += position.material_scores[0][1] - position.material_scores[1][1]; 
+        score += position.eval.material_scores[0][1] - position.eval.material_scores[1][1]; 
         // add piece square table score
-        score += position.pst_scores[0][1] - position.pst_scores[1][1];
+        score += position.eval.pst_scores[0][1] - position.eval.pst_scores[1][1];
+        // add double pawn score
+        score += (position.bitboards[Piece::WhitePawn as usize].0 & (position.bitboards[Piece::WhitePawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_ENDING 
+            - (position.bitboards[Piece::BlackPawn as usize].0 & (position.bitboards[Piece::BlackPawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_ENDING;
     } else {
         // add material score
-        score += position.material_scores[0][0] - position.material_scores[1][0]; 
+        score += position.eval.material_scores[0][0] - position.eval.material_scores[1][0]; 
         // add piece square table score
-        score += position.pst_scores[0][0] - position.pst_scores[1][0];
+        score += position.eval.pst_scores[0][0] - position.eval.pst_scores[1][0];
+        // add double pawn score
+        score += (position.bitboards[Piece::WhitePawn as usize].0 & (position.bitboards[Piece::WhitePawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_OPENING 
+            - (position.bitboards[Piece::BlackPawn as usize].0 & (position.bitboards[Piece::BlackPawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_OPENING;
     }
 
     // count bishop pair
@@ -85,8 +113,8 @@ pub fn set_file_rank_mask(file_num: i8, rank_num: i8) -> Bitboard {
 }
 
 // init evaluation masks
-pub fn init_evaluation_masks() -> Eval {
-    let mut eval = Eval::new();
+pub fn init_evaluation_masks() -> Masks {
+    let mut eval = Masks::new();
 
     // init file masks
     for rank in 0..8 {
@@ -145,7 +173,6 @@ pub fn init_evaluation_masks() -> Eval {
                 // reset redundant bits
                 eval.black_passed_masks[square as usize] &= !eval.rank_masks[(i * 8 + file) as usize];
             }
-            Bitboard(eval.black_passed_masks[square as usize]).show();
         }
     }
 
@@ -186,9 +213,9 @@ pub fn calculate_all(position: &mut Position) {
                 bitboard.pop(square as usize);
             }
         }
-        position.pst_scores[color_index][0] = pst_score;
-        position.pst_scores[color_index][1] = pst_eg_score;
-        position.material_scores[color_index][0] = score;
-        position.material_scores[color_index][1] = score_eg;
+        position.eval.pst_scores[color_index][0] = pst_score;
+        position.eval.pst_scores[color_index][1] = pst_eg_score;
+        position.eval.material_scores[color_index][0] = score;
+        position.eval.material_scores[color_index][1] = score_eg;
     }
 }

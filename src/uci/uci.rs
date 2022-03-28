@@ -178,7 +178,7 @@ impl Position {
         }
         
         if depth == 0 { depth = MAX_PLY as u8; }
-        println!("info string time: {} start: {:?} stop: {} depth: {} timeset: {} factor: {}", searcher.playtime, searcher.time, searcher.stoptime, depth, searcher.timeset, factor);
+        println!("info string time: {} start: {} stop: {} depth: {} timeset: {} factor: {}", searcher.playtime, searcher.time.duration_since(UNIX_EPOCH).unwrap().as_millis(), searcher.stoptime, depth, searcher.timeset, factor);
         searcher.search_position(self, depth);
     }
 }

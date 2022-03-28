@@ -114,8 +114,7 @@ pub struct Position {
     pub castling_rights_stack: Vec<u8>,
     pub en_passant_stack: Vec<Square>,
     pub hash_stack: Vec<u64>,
-    pub material_scores: [[i16; 2]; 2],
-    pub pst_scores: [[i16; 2]; 2],
+    pub eval: Eval,
 }
 impl Position {
     pub fn new() -> Position {
@@ -151,8 +150,7 @@ impl Position {
             castling_rights_stack: Vec::with_capacity(32),
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
-            material_scores: [[14560, 14740], [14560, 14740]],
-            pst_scores: [[348, -92]; 2],
+            eval: Eval::new(),
         };
         pos.hash = pos.generate_hash_key();
         return pos;
@@ -173,8 +171,7 @@ impl Position {
             castling_rights_stack: Vec::with_capacity(32),
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
-            material_scores: [[0; 2]; 2],
-            pst_scores: [[0; 2]; 2],
+            eval: Eval::new(),
         }
     }
 
@@ -235,15 +232,15 @@ impl Position {
         // -6 the piece index if its black
         if color == 1 {
             let index = (piece - 6) as usize;
-            self.pst_scores[color as usize][0] -= PSQT[index][to^56];
-            self.pst_scores[color as usize][1] -= PSQT_EG[index][to^56];
-            self.pst_scores[color as usize][0] += PSQT[index][from^56];
-            self.pst_scores[color as usize][1] += PSQT_EG[index][from^56];
+            self.eval.pst_scores[color as usize][0] -= PSQT[index][to^56];
+            self.eval.pst_scores[color as usize][1] -= PSQT_EG[index][to^56];
+            self.eval.pst_scores[color as usize][0] += PSQT[index][from^56];
+            self.eval.pst_scores[color as usize][1] += PSQT_EG[index][from^56];
         } else { 
-            self.pst_scores[color as usize][0] -= PSQT[piece as usize][to];
-            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][to];
-            self.pst_scores[color as usize][0] += PSQT[piece as usize][from];
-            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][from];
+            self.eval.pst_scores[color as usize][0] -= PSQT[piece as usize][to];
+            self.eval.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][to];
+            self.eval.pst_scores[color as usize][0] += PSQT[piece as usize][from];
+            self.eval.pst_scores[color as usize][1] += PSQT_EG[piece as usize][from];
         }
     }
 
@@ -256,15 +253,15 @@ impl Position {
         // -6 the piece index if its black
         if color == 1 {
             let index = (piece - 6) as usize;
-            self.pst_scores[color as usize][0] += PSQT[index][(field^56) as usize];
-            self.pst_scores[color as usize][1] += PSQT_EG[index][(field^56) as usize];
-            self.material_scores[color as usize][0] += PIECE_VALUE[index];
-            self.material_scores[color as usize][1] += PIECE_VALUE_EG[index];
+            self.eval.pst_scores[color as usize][0] += PSQT[index][(field^56) as usize];
+            self.eval.pst_scores[color as usize][1] += PSQT_EG[index][(field^56) as usize];
+            self.eval.material_scores[color as usize][0] += PIECE_VALUE[index];
+            self.eval.material_scores[color as usize][1] += PIECE_VALUE_EG[index];
         } else { 
-            self.material_scores[color as usize][0] += PIECE_VALUE[piece as usize];
-            self.material_scores[color as usize][1] += PIECE_VALUE_EG[piece as usize];
-            self.pst_scores[color as usize][0] += PSQT[piece as usize][field as usize];
-            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][field as usize];
+            self.eval.material_scores[color as usize][0] += PIECE_VALUE[piece as usize];
+            self.eval.material_scores[color as usize][1] += PIECE_VALUE_EG[piece as usize];
+            self.eval.pst_scores[color as usize][0] += PSQT[piece as usize][field as usize];
+            self.eval.pst_scores[color as usize][1] += PSQT_EG[piece as usize][field as usize];
         }
     }
 

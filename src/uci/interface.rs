@@ -41,7 +41,6 @@ pub fn main_loop() {
                 position = parse_position(&cmd);
             },
             "ucinewgame" => {
-                position = Position::new();
                 unsafe { 
                     TT.reset(); 
                     REPETITION.iter_mut().for_each(|x| *x = 0);
