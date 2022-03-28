@@ -7,8 +7,8 @@ pub const MOBILITY_OPENING: i16 = 5;
 pub const MOBILITY_ENDING: i16 = 1;
 pub const MOBILITY_CENTER_MULTIPLIER: i16 = 2;
 
-pub const DOUBLED_PAWN_OPENING: i16 = -7;
-pub const DOUBLED_PAWN_ENDING: i16 = -20;
+pub const DOUBLED_PAWN_OPENING: i16 = -4;
+pub const DOUBLED_PAWN_ENDING: i16 = -10;
 
 pub const ISOLATED_PAWN_OPENING: i16 = -29;
 pub const ISOLATED_PAWN_ENDING: i16 = -2;

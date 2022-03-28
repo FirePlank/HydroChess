@@ -5,7 +5,7 @@ use crate::evaluation::*;
 use crate::movegen::*;
 use crate::search::*;
 
-pub const MASKS: Masks = Masks::new();
+pub static mut MASKS: Masks = Masks::new();
 
 #[derive(Debug, Clone)]
 pub struct Eval {
@@ -34,6 +34,15 @@ impl Eval {
             passed_pawns: [[0, 0],[0, 0]],
         }
     }
+    pub const fn empty() -> Eval {
+        Eval {
+            material_scores: [[0, 0];2],
+            pst_scores: [[0, 0]; 2],
+            isolated_pawns: [[0, 0]; 2],
+            double_pawns: [[0, 0]; 2],
+            passed_pawns: [[0, 0]; 2],
+        }
+    }
 }
 
 impl Masks {
@@ -60,16 +69,14 @@ pub fn evaluate(position: &Position) -> i16 {
         // add piece square table score
         score += position.eval.pst_scores[0][1] - position.eval.pst_scores[1][1];
         // add double pawn score
-        score += (position.bitboards[Piece::WhitePawn as usize].0 & (position.bitboards[Piece::WhitePawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_ENDING 
-            - (position.bitboards[Piece::BlackPawn as usize].0 & (position.bitboards[Piece::BlackPawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+        score += position.eval.double_pawns[0][1] - position.eval.double_pawns[1][1];
     } else {
         // add material score
         score += position.eval.material_scores[0][0] - position.eval.material_scores[1][0]; 
         // add piece square table score
         score += position.eval.pst_scores[0][0] - position.eval.pst_scores[1][0];
         // add double pawn score
-        score += (position.bitboards[Piece::WhitePawn as usize].0 & (position.bitboards[Piece::WhitePawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_OPENING 
-            - (position.bitboards[Piece::BlackPawn as usize].0 & (position.bitboards[Piece::BlackPawn as usize].0 << 8)).count_ones() as i16 * DOUBLED_PAWN_OPENING;
+        score += position.eval.double_pawns[0][0] - position.eval.double_pawns[1][0];
     }
 
     // count bishop pair
@@ -187,7 +194,7 @@ pub fn force_king_corner(position: &Position) -> i16 {
     return (eval * 10.0 * (1.0-(position.phase()as f32/24.0))) as i16;
 }
 
-// calculates material and PST scores in `Position`
+// calculates all the different evaluation scores for the given position
 pub fn calculate_all(position: &mut Position) {
     for color_index in 0..2 {
         let mut score = 0;

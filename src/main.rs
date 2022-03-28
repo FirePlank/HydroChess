@@ -18,6 +18,7 @@ use evaluation::*;
 
 mod cache;
 use cache::*;
+
 // use std::thread;
 
 // FEN debug positions
@@ -35,13 +36,21 @@ fn main() {
     init_all();
 
     // debug mode variable
-    let debug = false;
+    let debug = true;
     if debug {
-        
-        let mut position = Position::from_fen("3k4/p6p/p6p/7N/8/P7/P7/3K4 w - - 0 1");
+        let mut pos = parse_position("position fen rnbqkbnr/1ppppppp/8/8/8/p7/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        println!("{}", evaluate(&pos));
+        let mut position = parse_position("position fen rnbqkbnr/1ppppppp/8/8/8/p7/PPPPPPPP/RNBQKBNR w KQkq - 0 1 moves b2a3");
+        let move_ = pos.parse_uci("b2a3");
+        position.side = 0;
+        println!("{}",evaluate(&position));
+        position.side = 1;
+        position.unmake(move_);
+        position.side = 0;
+        println!("{}",evaluate(&position));
         // let mut searcher = Searcher::new();
         // searcher.search_position(&mut position, 100);
-        println!("{}", evaluate(&position));
+        //println!("{}", evaluate(&position));
         
         // info score cp 95 depth 1 nodes 2 time 0 pv
         // info score cp 0 depth 2 nodes 317 time 0 pv g1f3 g8f6

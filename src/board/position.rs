@@ -150,9 +150,10 @@ impl Position {
             castling_rights_stack: Vec::with_capacity(32),
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
-            eval: Eval::new(),
+            eval: Eval::empty(),
         };
         pos.hash = pos.generate_hash_key();
+        calculate_all(&mut pos);
         return pos;
     }
     pub fn empty() -> Position {
@@ -182,6 +183,37 @@ impl Position {
         phase += (self.bitboards[Piece::WhiteRook as usize].0 | self.bitboards[Piece::BlackRook as usize].0).count_ones() * 2;
         phase += (self.bitboards[Piece::WhiteQueen as usize].0 | self.bitboards[Piece::BlackQueen as usize].0).count_ones() * 4;
         return phase;
+    }
+
+    pub fn calculate_score(&mut self, square: u8, piece: u8, capture: u8, unmake: bool) {
+
+        if self.side == 0 {
+            if piece == 0 && capture != 0 {
+                unsafe {
+                    if unmake {
+                        self.eval.double_pawns[0][0] -= (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
+                        self.eval.double_pawns[0][1] -= (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                    } else {
+                        self.eval.double_pawns[0][0] += (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
+                        self.eval.double_pawns[0][1] += (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                    }
+                    
+                }
+            }
+        } else {
+            if piece == Piece::BlackPawn as u8 && capture != 0 {
+                unsafe {
+                    if unmake {
+                        self.eval.double_pawns[1][0] -= (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
+                        self.eval.double_pawns[1][1] -= (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                    } else {
+                        self.eval.double_pawns[1][0] += (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
+                        self.eval.double_pawns[1][1] += (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                    }
+                }
+            }
+        }
+        
     }
 
     pub fn get_square_piece(&self, square: usize ) -> usize {
@@ -274,15 +306,15 @@ impl Position {
         // -6 the piece index if its black
         if color == 1 {
             let index = (piece - 6) as usize;
-            self.material_scores[color as usize][0] -= PIECE_VALUE[index];
-            self.material_scores[color as usize][1] -= PIECE_VALUE_EG[index];
-            self.pst_scores[color as usize][0] -= PSQT[index][(field^56) as usize];
-            self.pst_scores[color as usize][1] -= PSQT_EG[index][(field^56) as usize];
+            self.eval.material_scores[color as usize][0] -= PIECE_VALUE[index];
+            self.eval.material_scores[color as usize][1] -= PIECE_VALUE_EG[index];
+            self.eval.pst_scores[color as usize][0] -= PSQT[index][(field^56) as usize];
+            self.eval.pst_scores[color as usize][1] -= PSQT_EG[index][(field^56) as usize];
         } else {          
-            self.material_scores[color as usize][0] -= PIECE_VALUE[piece as usize];
-            self.material_scores[color as usize][1] -= PIECE_VALUE_EG[piece as usize];
-            self.pst_scores[color as usize][0] -= PSQT[piece as usize][field as usize];
-            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][field as usize];
+            self.eval.material_scores[color as usize][0] -= PIECE_VALUE[piece as usize];
+            self.eval.material_scores[color as usize][1] -= PIECE_VALUE_EG[piece as usize];
+            self.eval.pst_scores[color as usize][0] -= PSQT[piece as usize][field as usize];
+            self.eval.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][field as usize];
         }
     }
 
@@ -310,6 +342,9 @@ impl Position {
             target_square as usize,
             source_square as usize,
         );
+
+        // update score
+        self.calculate_score(target_square, piece, capture, false);
 
         // hash piece
         unsafe {
@@ -529,6 +564,9 @@ impl Position {
         self.castle = self.castling_rights_stack.pop().unwrap();
         self.enpassant = self.en_passant_stack.pop().unwrap();
         self.hash = self.hash_stack.pop().unwrap();
+
+        // update score
+        self.calculate_score(to, piece, capture, true);
 
         // check flags to determine how to proceed with undoing the move
         if castling != 0 {
