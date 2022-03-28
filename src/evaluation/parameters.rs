@@ -7,14 +7,14 @@ pub const MOBILITY_OPENING: i16 = 5;
 pub const MOBILITY_ENDING: i16 = 1;
 pub const MOBILITY_CENTER_MULTIPLIER: i16 = 2;
 
-pub const DOUBLED_PAWN_OPENING: i16 = -4;
-pub const DOUBLED_PAWN_ENDING: i16 = -10;
+pub const DOUBLED_PAWN_OPENING: i16 = -6;
+pub const DOUBLED_PAWN_ENDING: i16 = -16;
 
 pub const ISOLATED_PAWN_OPENING: i16 = -29;
 pub const ISOLATED_PAWN_ENDING: i16 = -2;
 
-pub const PASSING_PAWN_OPENING: i16 = 2;
-pub const PASSING_PAWN_ENDING: i16 = 54;
+pub const PASSED_PAWN_OPENING: i16 = 2;
+pub const PASSED_PAWN_ENDING: i16 = 54;
 
 pub const PAWN_SHIELD_OPENING: i16 = 12;
 pub const PAWN_SHIELD_ENDING: i16 = 5;

@@ -38,16 +38,17 @@ fn main() {
     // debug mode variable
     let debug = true;
     if debug {
-        let mut pos = parse_position("position fen rnbqkbnr/1ppppppp/8/8/8/p7/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        println!("{}", evaluate(&pos));
-        let mut position = parse_position("position fen rnbqkbnr/1ppppppp/8/8/8/p7/PPPPPPPP/RNBQKBNR w KQkq - 0 1 moves b2a3");
-        let move_ = pos.parse_uci("b2a3");
-        position.side = 0;
-        println!("{}",evaluate(&position));
-        position.side = 1;
-        position.unmake(move_);
-        position.side = 0;
-        println!("{}",evaluate(&position));
+        // let mut pos = parse_position("position fen rnbqkbnr/1ppppppp/8/8/8/p7/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        // println!("{}", evaluate(&pos));
+        let mut position = parse_position("position fen 7k/2P5/8/8/8/8/2pP4/K7 w - - 0 2");
+        println!("{}", evaluate(&position));
+        // let move_ = pos.parse_uci("b2a3");
+        // position.side = 0;
+        // println!("{}",evaluate(&position));
+        // position.side = 1;
+        // position.unmake(move_);
+        // position.side = 0;
+        // println!("{}",evaluate(&position));
         // let mut searcher = Searcher::new();
         // searcher.search_position(&mut position, 100);
         //println!("{}", evaluate(&position));

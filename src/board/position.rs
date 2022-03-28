@@ -185,37 +185,58 @@ impl Position {
         return phase;
     }
 
-    pub fn calculate_score(&mut self, square: u8, piece: u8, capture: u8, unmake: bool) {
-
-        if self.side == 0 {
-            if piece == 0 && capture != 0 {
-                unsafe {
+    pub fn calculate_isolated(&mut self, square: u8, unmake: bool) {
+        unsafe {
+            if self.side == 0 {
+                if (MASKS.isolated_masks[square as usize] & self.bitboards[Piece::WhitePawn as usize].0) == 0 {
                     if unmake {
-                        self.eval.double_pawns[0][0] -= (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
-                        self.eval.double_pawns[0][1] -= (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][1] -= ISOLATED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][0] -= ISOLATED_PAWN_OPENING;
                     } else {
-                        self.eval.double_pawns[0][0] += (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
-                        self.eval.double_pawns[0][1] += (self.bitboards[0].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][1] += ISOLATED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][0] += ISOLATED_PAWN_OPENING;
                     }
-                    
                 }
-            }
-        } else {
-            if piece == Piece::BlackPawn as u8 && capture != 0 {
-                unsafe {
+            } else {
+                if (MASKS.isolated_masks[square as usize] & self.bitboards[Piece::WhitePawn as usize].0) == 0 {
                     if unmake {
-                        self.eval.double_pawns[1][0] -= (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
-                        self.eval.double_pawns[1][1] -= (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][1] -= ISOLATED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][0] -= ISOLATED_PAWN_OPENING;
                     } else {
-                        self.eval.double_pawns[1][0] += (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_OPENING;
-                        self.eval.double_pawns[1][1] += (self.bitboards[1].0 & MASKS.file_masks[square as usize]).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][1] += ISOLATED_PAWN_ENDING;
+                        self.eval.isolated_pawns[0][0] += ISOLATED_PAWN_OPENING;
                     }
                 }
             }
         }
-        
     }
-
+    
+    pub fn calculate_passed(&mut self, square: u8, unmake: bool) {
+        unsafe {
+            if self.side == 0 {
+                if (MASKS.white_passed_masks[square as usize] & self.bitboards[0].0) == 0 {
+                    if unmake {
+                        self.eval.passed_pawns[0][1] -= PASSED_PAWN_ENDING;
+                        self.eval.passed_pawns[0][0] -= PASSED_PAWN_OPENING;
+                    } else {
+                        self.eval.passed_pawns[0][1] += PASSED_PAWN_ENDING;
+                        self.eval.passed_pawns[0][0] += PASSED_PAWN_OPENING;
+                    }
+                }
+            } else {
+                if (MASKS.black_passed_masks[square as usize] & self.bitboards[Piece::BlackPawn as usize].0) == 0 {
+                    if unmake {
+                        self.eval.passed_pawns[0][1] -= PASSED_PAWN_ENDING;
+                        self.eval.passed_pawns[0][0] -= PASSED_PAWN_OPENING;
+                    } else {
+                        self.eval.passed_pawns[0][1] += PASSED_PAWN_ENDING;
+                        self.eval.passed_pawns[0][0] += PASSED_PAWN_OPENING;
+                    }
+                }
+            }
+        }
+    }
+    
     pub fn get_square_piece(&self, square: usize ) -> usize {
         let start_piece;
         let end_piece;
@@ -343,8 +364,13 @@ impl Position {
             source_square as usize,
         );
 
-        // update score
-        self.calculate_score(target_square, piece, capture, false);
+        // update scores
+        if piece == 0 || piece == Piece::BlackPawn as u8 {
+            if capture != 0 {
+                self.calculate_isolated(target_square, false);
+            }
+            self.calculate_passed(target_square, false);
+        }
 
         // hash piece
         unsafe {
@@ -566,7 +592,13 @@ impl Position {
         self.hash = self.hash_stack.pop().unwrap();
 
         // update score
-        self.calculate_score(to, piece, capture, true);
+        if piece == 0 || piece == Piece::BlackPawn as u8 {
+            if capture != 0 {
+                self.calculate_isolated(to, true);
+            }
+            self.calculate_passed(to, true);
+        }
+        //self.calculate_score(to, piece, capture, true);
 
         // check flags to determine how to proceed with undoing the move
         if castling != 0 {
