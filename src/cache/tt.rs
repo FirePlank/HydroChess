@@ -40,6 +40,7 @@ impl TranspositionTable {
     }
 
     pub fn reset(&mut self) {
+        self.table.clear();
         self.table.resize(self.size, Default::default());
     }
 

@@ -95,8 +95,8 @@ impl Position {
 
         let mut searcher = Searcher::new();
         let phase = self.phase();
-        let addon = if phase as i32 - 22 > 0 { phase - 7 } else {
-            if phase as i32 - 15 > 0 { phase - 4 } else { 
+        let addon = if phase as i32 - 22 > 0 { phase - 6 } else {
+            if phase as i32 - 15 > 0 { phase - 2 } else { 
                 if phase as i32 - 7 > 0 { phase } else { 0 }
             }
         };

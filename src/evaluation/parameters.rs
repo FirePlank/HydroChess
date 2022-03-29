@@ -1,43 +1,31 @@
 // evaluation parameters and constants
 pub const PIECE_VALUE: [i16; 6] = [95, 370, 390, 590, 1100, 10000];
 pub const PIECE_VALUE_EG: [i16; 6] = [115, 310, 270, 680, 1300, 10000];
-pub const BISHOP_PAIR: i16 = 40;
-
-pub const MOBILITY_OPENING: i16 = 5;
-pub const MOBILITY_ENDING: i16 = 1;
-pub const MOBILITY_CENTER_MULTIPLIER: i16 = 2;
+pub const BISHOP_PAIR: i16 = 15;
 
 pub const DOUBLED_PAWN_OPENING: i16 = -6;
 pub const DOUBLED_PAWN_ENDING: i16 = -16;
 
-pub const ISOLATED_PAWN_OPENING: i16 = -29;
-pub const ISOLATED_PAWN_ENDING: i16 = -2;
+pub const SEMI_OPEN_FILE: i16 = 10;
+pub const OPEN_FILE: i16 = 20;
+
+pub const SEMI_OPEN_FILE_PENALTY: i16 = 10;
+pub const OPEN_FILE_PENALTY: i16 = 25;
+
+pub const KING_SHIELD: i16 = 6;
+
+pub const ISOLATED_PAWN_OPENING: i16 = -30;
+pub const ISOLATED_PAWN_ENDING: i16 = -5;
 
 pub const PASSED_PAWN_OPENING: i16 = 2;
 pub const PASSED_PAWN_ENDING: i16 = 54;
 
-pub const PAWN_SHIELD_OPENING: i16 = 12;
-pub const PAWN_SHIELD_ENDING: i16 = 5;
-
-pub const PAWN_SHIELD_OPEN_FILE_OPENING: i16 = -30;
-pub const PAWN_SHIELD_OPEN_FILE_ENDING: i16 = 2;
-
-pub const KING_ATTACKED_FIELDS_OPENING: i16 = -20;
-pub const KING_ATTACKED_FIELDS_ENDING: i16 = 0;
-
-
-// extract rank from square [square]
-#[rustfmt::skip]
-pub const GET_RANK: [u8;64] = [
-    7, 7, 7, 7, 7, 7, 7, 7,
-    6, 6, 6, 6, 6, 6, 6, 6,
-    5, 5, 5, 5, 5, 5, 5, 5,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 2,
-    1, 1, 1, 1, 1, 1, 1, 1,
-    0, 0, 0, 0, 0, 0, 0, 0,
-];
+// mobility multipliers
+pub const BISHOP: i16 = 5;
+pub const ROOK: i16 = 2;
+pub const ROOK_EG: i16 = 4;
+pub const QUEEN: i16 = 1;
+pub const QUEEN_EG: i16 = 2;
 
 // Piece square tables
 #[rustfmt::skip]

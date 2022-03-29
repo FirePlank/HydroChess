@@ -7,42 +7,12 @@ use crate::search::*;
 
 pub static mut MASKS: Masks = Masks::new();
 
-#[derive(Debug, Clone)]
-pub struct Eval {
-    pub material_scores: [[i16; 2]; 2],
-    pub pst_scores: [[i16; 2]; 2],
-    pub isolated_pawns: [[i16; 2]; 2],
-    pub double_pawns: [[i16; 2]; 2],
-    pub passed_pawns: [[i16; 2]; 2],
-}
-
 pub struct Masks {
     pub file_masks: [u64; 64],
     pub rank_masks: [u64; 64],
     pub isolated_masks: [u64; 64],
     pub white_passed_masks: [u64; 64],
     pub black_passed_masks: [u64; 64],
-}
-
-impl Eval {
-    pub const fn new() -> Eval {
-        Eval {
-            material_scores: [[14560, 14740];2],
-            pst_scores: [[348, -92]; 2],
-            isolated_pawns: [[0, 0],[0, 0]],
-            double_pawns: [[0, 0],[0, 0]],
-            passed_pawns: [[0, 0],[0, 0]],
-        }
-    }
-    pub const fn empty() -> Eval {
-        Eval {
-            material_scores: [[0, 0];2],
-            pst_scores: [[0, 0]; 2],
-            isolated_pawns: [[0, 0]; 2],
-            double_pawns: [[0, 0]; 2],
-            passed_pawns: [[0, 0]; 2],
-        }
-    }
 }
 
 impl Masks {
@@ -60,32 +30,33 @@ impl Masks {
 // evaluation function
 pub fn evaluate(position: &Position) -> i16 {
     let mut score = 0;
-
-    let eg = position.phase() <= 7;
-
-    if eg {
+    let phase = position.phase() <= 7;
+    if phase {
         // add material score
-        score += position.eval.material_scores[0][1] - position.eval.material_scores[1][1]; 
+        score += position.material_scores[0][1] - position.material_scores[1][1]; 
         // add piece square table score
-        score += position.eval.pst_scores[0][1] - position.eval.pst_scores[1][1];
-        // add isolated pawn score
-        score -= position.eval.isolated_pawns[0][1] + position.eval.isolated_pawns[1][1];
-        // add passed pawn score
-        score += position.eval.passed_pawns[0][1] + position.eval.passed_pawns[1][1];
+        score += position.pst_scores[0][1] - position.pst_scores[1][1];
+        // add double pawn score
+        score += (position.bitboards[0].0 & position.bitboards[0].0 << 8).count_ones() as i16 * DOUBLED_PAWN_ENDING - 
+        (position.bitboards[Piece::BlackPawn as usize].0 & position.bitboards[Piece::BlackPawn as usize].0 << 8).count_ones() as i16 * DOUBLED_PAWN_ENDING;
+
+        score += position.mobility[2] * BISHOP - position.mobility[8] * BISHOP;
+        score += position.mobility[3] * ROOK_EG - position.mobility[9] * ROOK_EG;
+        score += position.mobility[4] * QUEEN_EG - position.mobility[10] * QUEEN_EG;
     } else {
         // add material score
-        score += position.eval.material_scores[0][0] - position.eval.material_scores[1][0]; 
+        score += position.material_scores[0][0] - position.material_scores[1][0]; 
         // add piece square table score
-        score += position.eval.pst_scores[0][0] - position.eval.pst_scores[1][0];
-        // add isolated pawn score
-        score -= position.eval.isolated_pawns[0][0] + position.eval.isolated_pawns[1][0];
-        // add passed pawn score
-        score += position.eval.passed_pawns[0][0] - position.eval.passed_pawns[1][0];
-    }
+        score += position.pst_scores[0][0] - position.pst_scores[1][0];
+        // add double pawn score
+        score += (position.bitboards[0].0 & position.bitboards[0].0 << 8).count_ones() as i16 * DOUBLED_PAWN_OPENING - 
+        (position.bitboards[Piece::BlackPawn as usize].0 & position.bitboards[Piece::BlackPawn as usize].0 << 8).count_ones() as i16 * DOUBLED_PAWN_OPENING;
 
-    // add double pawn score
-    score += (position.bitboards[0].0 & position.bitboards[0].0 << 8).count_ones() as i16 * DOUBLED_PAWN_OPENING - 
-    (position.bitboards[Piece::BlackPawn as usize].0 & position.bitboards[Piece::BlackPawn as usize].0 << 8).count_ones() as i16 * DOUBLED_PAWN_OPENING;
+        score += position.mobility[2] * BISHOP - position.mobility[8] * BISHOP;
+        score += position.mobility[3] * ROOK - position.mobility[9] * ROOK;
+        score += position.mobility[4] * QUEEN - position.mobility[10] * QUEEN;
+    }
+    score += calculate_all(&position, phase);
 
     // count bishop pair
     if position.bitboards[Piece::WhiteBishop as usize].count() >= 2 {
@@ -97,6 +68,16 @@ pub fn evaluate(position: &Position) -> i16 {
     // return final evaluation based on side
     return if position.side == 0 { score } else { -score };
 }
+
+// pub fn calculate_mobility(position: &Position, phase: bool) -> i16 {
+//     let mut score = 0;
+
+//     // add bishop mobility
+//     score += get_bishop_attacks(square, occupancy);
+
+//     // return score
+//     return score;
+// }
 
 // set file or rank mask for a given square
 pub fn set_file_rank_mask(file_num: i8, rank_num: i8) -> Bitboard {
@@ -194,17 +175,17 @@ pub fn init_evaluation_masks() -> Masks {
     return eval;
 }
 
-pub fn force_king_corner(position: &Position) -> i16 {
-    let mut eval = 0.0;
+// pub fn force_king_corner(position: &Position) -> i16 {
+//     let mut eval = 0.0;
 
-    // favor positions where the opponent king has been forced into the edge of the board
-    // this makes the bot be able to checkmate easier in the endgame
-    return (eval * 10.0 * (1.0-(position.phase()as f32/24.0))) as i16;
-}
+//     // favor positions where the opponent king has been forced into the edge of the board
+//     // this makes the bot be able to checkmate easier in the endgame
+//     return (eval * 10.0 * (1.0-(position.phase()as f32/24.0))) as i16;
+// }
 
-// calculates all the different evaluation scores for the given position
-pub fn calculate_all(position: &mut Position) {
-    let phase = position.phase() <= 7;
+// calculates PST and piece av
+pub fn init_calculation(position: &mut Position) {
+    let both = Bitboard(position.occupancies[0].0 | position.occupancies[1].0);
     for color_index in 0..2 {
         let mut score = 0;
         let mut score_eg = 0;
@@ -225,38 +206,144 @@ pub fn calculate_all(position: &mut Position) {
                     pst_score += PSQT[piece_index][(square^56) as usize];
                     pst_eg_score += PSQT_EG[piece_index][(square^56) as usize];
                 }
+
+                match piece_index {
+                    // mobility
+                    2 => {
+                        if color_index == 0 {
+                            position.mobility[2] = get_bishop_attacks(square as usize, both).count_ones() as i16 - 7;
+                        } else {
+                            position.mobility[8] = get_bishop_attacks(square as usize, both).count_ones() as i16 - 7;
+                        }
+                    }
+                    3 => {
+                        if color_index == 0 {
+                            position.mobility[3] = get_rook_attacks(square as usize, both).count_ones() as i16 - 7;
+                        } else {
+                            position.mobility[9] = get_rook_attacks(square as usize, both).count_ones() as i16 - 7;
+                        }
+                    }
+                    4 => {
+                        if color_index == 0 {
+                            position.mobility[4] = get_queen_attacks(square as usize, both).count_ones() as i16 - 7;
+                        } else {
+                            position.mobility[10] = get_queen_attacks(square as usize, both).count_ones() as i16 - 7;
+                        }
+                    },
+                    _ => ()
+                }
+                bitboard.pop(square as usize);
+            }
+        }
+        position.pst_scores[color_index][0] = pst_score;
+        position.pst_scores[color_index][1] = pst_eg_score;
+        position.material_scores[color_index][0] = score;
+        position.material_scores[color_index][1] = score_eg;
+    }
+}
+
+// calculates all the different evaluation scores for the given position
+pub fn calculate_all(position: &Position, phase: bool) -> i16 {
+    let mut score = 0;
+    if phase {
+        for piece_index in 0..Piece::BlackPawn as usize {
+            let mut bitboard = position.bitboards[piece_index];
+            while bitboard.0 != 0 {
+                let square = bitboard.ls1b();
                 
                 unsafe {
-                    // isolated pawns and passed pawns
                     if piece_index == 0 {
-                        if color_index == 0 && (position.bitboards[0].0 & MASKS.isolated_masks[square as usize]) == 0 {
-                            position.eval.isolated_pawns[0][1] += ISOLATED_PAWN_ENDING;
-                            position.eval.isolated_pawns[0][0] += ISOLATED_PAWN_OPENING;
+                        // isolated pawns and passed pawns
+                        if position.side == 0 && (position.bitboards[0].0 & MASKS.isolated_masks[square as usize]) == 0 {
+                            score += ISOLATED_PAWN_ENDING;
                         } else {
                             if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.isolated_masks[square as usize]) == 0 {
-                                position.eval.isolated_pawns[1][1] += ISOLATED_PAWN_ENDING;
-                                position.eval.isolated_pawns[1][0] += ISOLATED_PAWN_OPENING;
+                                score -= ISOLATED_PAWN_ENDING;
                             }
                         }
-
-                        if color_index == 0 && (position.bitboards[0].0 & MASKS.white_passed_masks[square as usize]) == 0 {
-                            position.eval.passed_pawns[0][1] += PASSED_PAWN_ENDING;
-                            position.eval.passed_pawns[0][0] += PASSED_PAWN_OPENING;
+    
+                        if position.side == 0 && (position.bitboards[0].0 & MASKS.white_passed_masks[square as usize]) == 0 {
+                            score += PASSED_PAWN_ENDING;
                         } else {
                             if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.white_passed_masks[square as usize]) == 0 {
-                                position.eval.passed_pawns[1][1] += PASSED_PAWN_ENDING;
-                                position.eval.passed_pawns[1][0] += PASSED_PAWN_OPENING;
+                                score -= PASSED_PAWN_ENDING;
                             }
                         }
                     }
                 }
-
                 bitboard.pop(square as usize);
             }
         }
-        position.eval.pst_scores[color_index][0] = pst_score;
-        position.eval.pst_scores[color_index][1] = pst_eg_score;
-        position.eval.material_scores[color_index][0] = score;
-        position.eval.material_scores[color_index][1] = score_eg;
+        return score;
     }
+    for piece_index in 0..Piece::BlackPawn as usize {
+        let mut bitboard = position.bitboards[piece_index];
+        while bitboard.0 != 0 {
+            let square = bitboard.ls1b();
+            
+            unsafe {
+                match piece_index {
+                    0 => {
+                        // isolated pawns and passed pawns
+                        if position.side == 0 && (position.bitboards[0].0 & MASKS.isolated_masks[square as usize]) == 0 {
+                            score += ISOLATED_PAWN_OPENING;
+                        } else {
+                            if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.isolated_masks[square as usize]) == 0 {
+                                score -= ISOLATED_PAWN_OPENING;
+                            }
+                        }
+
+                        if position.side == 0 && (position.bitboards[0].0 & MASKS.white_passed_masks[square as usize]) == 0 {
+                            score += PASSED_PAWN_OPENING;
+                        } else {
+                            if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.white_passed_masks[square as usize]) == 0 {
+                                score -= PASSED_PAWN_OPENING;
+                            }
+                        }
+                    },
+                    3 | 9 => {
+                        // open files
+                        if position.side == 0 && (position.bitboards[0].0 & MASKS.file_masks[square as usize]) == 0 {
+                            if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize]) == 0 {
+                                score += OPEN_FILE;
+                            } else {
+                                score += SEMI_OPEN_FILE;
+                            }
+                        } else {
+                            if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize]) == 0 {
+                                if (position.bitboards[0].0 & MASKS.file_masks[square as usize]) == 0 {
+                                    score -= OPEN_FILE;
+                                } else {
+                                    score -= SEMI_OPEN_FILE;
+                                }
+                            }
+                        }
+                    },
+                    5 | 11 => {
+                        // open file penalties and king safety bonus
+                        if position.side == 0 && (position.bitboards[0].0 & MASKS.file_masks[square as usize]) == 0 {
+                            if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize]) == 0 {
+                                score -= OPEN_FILE_PENALTY;
+                            } else {
+                                score -= SEMI_OPEN_FILE_PENALTY;
+                            }
+                            score += (KING_ATTACKS[square as usize] & position.occupancies[0].0).count_ones() as i16 * KING_SHIELD;
+                        } else {
+                            if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize]) == 0 {
+                                if (position.bitboards[0].0 & MASKS.file_masks[square as usize]) == 0 {
+                                    score += OPEN_FILE_PENALTY;
+                                } else {
+                                    score += SEMI_OPEN_FILE_PENALTY;
+                                }
+                            }
+                            score -= (KING_ATTACKS[square as usize] & position.occupancies[0].0).count_ones() as i16 * KING_SHIELD;
+                        }
+                    }
+                    _ => ()
+                }
+            }
+            bitboard.pop(square as usize);
+        }
+    }
+    return score;
 }

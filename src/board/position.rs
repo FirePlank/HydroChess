@@ -114,8 +114,11 @@ pub struct Position {
     pub castling_rights_stack: Vec<u8>,
     pub en_passant_stack: Vec<Square>,
     pub hash_stack: Vec<u64>,
-    pub eval: Eval,
+    pub material_scores: [[i16; 2]; 2],
+    pub pst_scores: [[i16; 2]; 2],
+    pub mobility: [i16; 12],
 }
+
 impl Position {
     pub fn new() -> Position {
         let mut pos = Position {
@@ -150,10 +153,12 @@ impl Position {
             castling_rights_stack: Vec::with_capacity(32),
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
-            eval: Eval::empty(),
+            material_scores: [[0; 2]; 2],
+            pst_scores: [[0; 2]; 2],
+            mobility: [0; 12],
         };
         pos.hash = pos.generate_hash_key();
-        calculate_all(&mut pos);
+        init_calculation(&mut pos);
         return pos;
     }
     pub fn empty() -> Position {
@@ -172,7 +177,9 @@ impl Position {
             castling_rights_stack: Vec::with_capacity(32),
             en_passant_stack: Vec::with_capacity(32),
             hash_stack: Vec::with_capacity(32),
-            eval: Eval::new(),
+            material_scores: [[0; 2]; 2],
+            pst_scores: [[0; 2]; 2],
+            mobility: [0; 12],
         }
     }
 
@@ -185,58 +192,6 @@ impl Position {
         return phase;
     }
 
-    pub fn calculate_isolated(&mut self, square: u8, unmake: bool) {
-        unsafe {
-            if self.side == 0 {
-                if (MASKS.isolated_masks[square as usize] & self.bitboards[Piece::WhitePawn as usize].0) == 0 {
-                    if unmake {
-                        self.eval.isolated_pawns[0][1] -= ISOLATED_PAWN_ENDING;
-                        self.eval.isolated_pawns[0][0] -= ISOLATED_PAWN_OPENING;
-                    } else {
-                        self.eval.isolated_pawns[0][1] += ISOLATED_PAWN_ENDING;
-                        self.eval.isolated_pawns[0][0] += ISOLATED_PAWN_OPENING;
-                    }
-                }
-            } else {
-                if (MASKS.isolated_masks[square as usize] & self.bitboards[Piece::WhitePawn as usize].0) == 0 {
-                    if unmake {
-                        self.eval.isolated_pawns[0][1] -= ISOLATED_PAWN_ENDING;
-                        self.eval.isolated_pawns[0][0] -= ISOLATED_PAWN_OPENING;
-                    } else {
-                        self.eval.isolated_pawns[0][1] += ISOLATED_PAWN_ENDING;
-                        self.eval.isolated_pawns[0][0] += ISOLATED_PAWN_OPENING;
-                    }
-                }
-            }
-        }
-    }
-    
-    pub fn calculate_passed(&mut self, square: u8, unmake: bool) {
-        unsafe {
-            if self.side == 0 {
-                if (MASKS.white_passed_masks[square as usize] & self.bitboards[0].0) == 0 {
-                    if unmake {
-                        self.eval.passed_pawns[0][1] -= PASSED_PAWN_ENDING;
-                        self.eval.passed_pawns[0][0] -= PASSED_PAWN_OPENING;
-                    } else {
-                        self.eval.passed_pawns[0][1] += PASSED_PAWN_ENDING;
-                        self.eval.passed_pawns[0][0] += PASSED_PAWN_OPENING;
-                    }
-                }
-            } else {
-                if (MASKS.black_passed_masks[square as usize] & self.bitboards[Piece::BlackPawn as usize].0) == 0 {
-                    if unmake {
-                        self.eval.passed_pawns[0][1] -= PASSED_PAWN_ENDING;
-                        self.eval.passed_pawns[0][0] -= PASSED_PAWN_OPENING;
-                    } else {
-                        self.eval.passed_pawns[0][1] += PASSED_PAWN_ENDING;
-                        self.eval.passed_pawns[0][0] += PASSED_PAWN_OPENING;
-                    }
-                }
-            }
-        }
-    }
-    
     pub fn get_square_piece(&self, square: usize ) -> usize {
         let start_piece;
         let end_piece;
@@ -283,17 +238,47 @@ impl Position {
         self.bitboards[piece as usize].set(from);
 
         // -6 the piece index if its black
+        let both = Bitboard(self.occupancies[0].0 | self.occupancies[1].0);
         if color == 1 {
+            // match piece as usize {
+            //     // mobility
+            //     8 => {
+            //         self.mobility[8] = get_bishop_attacks(to, both).count_ones() as i16 - 7;
+            //     }
+            //     9 => {
+            //         self.mobility[9] = get_rook_attacks(to, both).count_ones() as i16 - 7;
+            //     }
+            //     10 => {
+            //         self.mobility[10] = get_queen_attacks(to, both).count_ones() as i16 - 7;
+            //     },
+            //     _ => ()
+            // }
+
+
             let index = (piece - 6) as usize;
-            self.eval.pst_scores[color as usize][0] -= PSQT[index][to^56];
-            self.eval.pst_scores[color as usize][1] -= PSQT_EG[index][to^56];
-            self.eval.pst_scores[color as usize][0] += PSQT[index][from^56];
-            self.eval.pst_scores[color as usize][1] += PSQT_EG[index][from^56];
-        } else { 
-            self.eval.pst_scores[color as usize][0] -= PSQT[piece as usize][to];
-            self.eval.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][to];
-            self.eval.pst_scores[color as usize][0] += PSQT[piece as usize][from];
-            self.eval.pst_scores[color as usize][1] += PSQT_EG[piece as usize][from];
+            self.pst_scores[color as usize][0] -= PSQT[index][to^56];
+            self.pst_scores[color as usize][1] -= PSQT_EG[index][to^56];
+            self.pst_scores[color as usize][0] += PSQT[index][from^56];
+            self.pst_scores[color as usize][1] += PSQT_EG[index][from^56];
+        } else {
+            // match piece as usize {
+            //     // mobility
+            //     2 => {
+            //         self.mobility[2] = get_bishop_attacks(to, both).count_ones() as i16 - 7;
+            //     }
+            //     3 => {
+            //         self.mobility[3] = get_rook_attacks(to, both).count_ones() as i16 - 7;
+            //     }
+            //     4 => {
+            //         self.mobility[4] = get_queen_attacks(to, both).count_ones() as i16 - 7;
+            //     },
+            //     _ => ()
+            // }
+
+            self.pst_scores[color as usize][0] -= PSQT[piece as usize][to];
+            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][to];
+            self.pst_scores[color as usize][0] += PSQT[piece as usize][from];
+            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][from];
         }
     }
 
@@ -304,17 +289,46 @@ impl Position {
         self.bitboards[piece as usize].set(field as usize);
 
         // -6 the piece index if its black
+        let both = Bitboard(self.occupancies[0].0 | self.occupancies[1].0);
         if color == 1 {
+            match piece as usize {
+                // mobility
+                8 => {
+                    self.mobility[8] = get_bishop_attacks(field as usize, both).count_ones() as i16 - 7;
+                }
+                9 => {
+                    self.mobility[9] = get_rook_attacks(field as usize, both).count_ones() as i16 - 7;
+                }
+                10 => {
+                    self.mobility[10] = get_queen_attacks(field as usize, both).count_ones() as i16 - 7;
+                },
+                _ => ()
+            }
+
             let index = (piece - 6) as usize;
-            self.eval.pst_scores[color as usize][0] += PSQT[index][(field^56) as usize];
-            self.eval.pst_scores[color as usize][1] += PSQT_EG[index][(field^56) as usize];
-            self.eval.material_scores[color as usize][0] += PIECE_VALUE[index];
-            self.eval.material_scores[color as usize][1] += PIECE_VALUE_EG[index];
-        } else { 
-            self.eval.material_scores[color as usize][0] += PIECE_VALUE[piece as usize];
-            self.eval.material_scores[color as usize][1] += PIECE_VALUE_EG[piece as usize];
-            self.eval.pst_scores[color as usize][0] += PSQT[piece as usize][field as usize];
-            self.eval.pst_scores[color as usize][1] += PSQT_EG[piece as usize][field as usize];
+            self.pst_scores[color as usize][0] += PSQT[index][(field^56) as usize];
+            self.pst_scores[color as usize][1] += PSQT_EG[index][(field^56) as usize];
+            self.material_scores[color as usize][0] += PIECE_VALUE[index];
+            self.material_scores[color as usize][1] += PIECE_VALUE_EG[index];
+        } else {
+            match piece as usize {
+                // mobility
+                2 => {
+                    self.mobility[2] = get_bishop_attacks(field as usize, both).count_ones() as i16 - 7;
+                }
+                3 => {
+                    self.mobility[3] = get_rook_attacks(field as usize, both).count_ones() as i16 - 7;
+                }
+                4 => {
+                    self.mobility[4] = get_queen_attacks(field as usize, both).count_ones() as i16 - 7;
+                },
+                _ => ()
+            }
+
+            self.material_scores[color as usize][0] += PIECE_VALUE[piece as usize];
+            self.material_scores[color as usize][1] += PIECE_VALUE_EG[piece as usize];
+            self.pst_scores[color as usize][0] += PSQT[piece as usize][field as usize];
+            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][field as usize];
         }
     }
 
@@ -327,15 +341,15 @@ impl Position {
         // -6 the piece index if its black
         if color == 1 {
             let index = (piece - 6) as usize;
-            self.eval.material_scores[color as usize][0] -= PIECE_VALUE[index];
-            self.eval.material_scores[color as usize][1] -= PIECE_VALUE_EG[index];
-            self.eval.pst_scores[color as usize][0] -= PSQT[index][(field^56) as usize];
-            self.eval.pst_scores[color as usize][1] -= PSQT_EG[index][(field^56) as usize];
+            self.material_scores[color as usize][0] -= PIECE_VALUE[index];
+            self.material_scores[color as usize][1] -= PIECE_VALUE_EG[index];
+            self.pst_scores[color as usize][0] -= PSQT[index][(field^56) as usize];
+            self.pst_scores[color as usize][1] -= PSQT_EG[index][(field^56) as usize];
         } else {          
-            self.eval.material_scores[color as usize][0] -= PIECE_VALUE[piece as usize];
-            self.eval.material_scores[color as usize][1] -= PIECE_VALUE_EG[piece as usize];
-            self.eval.pst_scores[color as usize][0] -= PSQT[piece as usize][field as usize];
-            self.eval.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][field as usize];
+            self.material_scores[color as usize][0] -= PIECE_VALUE[piece as usize];
+            self.material_scores[color as usize][1] -= PIECE_VALUE_EG[piece as usize];
+            self.pst_scores[color as usize][0] -= PSQT[piece as usize][field as usize];
+            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][field as usize];
         }
     }
 
@@ -365,12 +379,14 @@ impl Position {
         );
 
         // update scores
-        if piece == 0 || piece == Piece::BlackPawn as u8 {
-            if capture != 0 {
-                self.calculate_isolated(target_square, false);
-            }
-            self.calculate_passed(target_square, false);
-        }
+        // if piece == 0 || piece == Piece::BlackPawn as u8 {
+        //     if capture != 0 {
+        //         self.calculate_isolated(target_square, false);
+        //     }
+        //     self.calculate_passed(target_square, false);
+        // } else if piece == Piece::WhiteRook as u8 || piece == Piece::BlackRook as u8 {
+        //     self.calculate_rook(target_square, false);
+        // }
 
         // hash piece
         unsafe {
@@ -592,13 +608,14 @@ impl Position {
         self.hash = self.hash_stack.pop().unwrap();
 
         // update score
-        if piece == 0 || piece == Piece::BlackPawn as u8 {
-            if capture != 0 {
-                self.calculate_isolated(to, true);
-            }
-            self.calculate_passed(to, true);
-        }
-        //self.calculate_score(to, piece, capture, true);
+        // if piece == 0 || piece == Piece::BlackPawn as u8 {
+        //     if capture != 0 {
+        //         self.calculate_isolated(to, true);
+        //     }
+        //     self.calculate_passed(to, true);
+        // } else if piece == Piece::WhiteRook as u8 || piece == Piece::BlackRook as u8 {
+        //     self.calculate_rook(to, true);
+        // }
 
         // check flags to determine how to proceed with undoing the move
         if castling != 0 {
@@ -921,8 +938,7 @@ impl Position {
         position.hash = position.generate_hash_key();
         position.pawn_hash = 0;
 
-        // calculate piece square table score and material score
-        calculate_all(&mut position);
+        init_calculation(&mut position);
 
         return position;
     }
