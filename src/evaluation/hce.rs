@@ -39,10 +39,12 @@ pub fn evaluate(position: &Position) -> i16 {
         // add double pawn score
         score += (position.bitboards[0].0 & position.bitboards[0].0 << 8).count_ones() as i16 * DOUBLED_PAWN_ENDING - 
         (position.bitboards[Piece::BlackPawn as usize].0 & position.bitboards[Piece::BlackPawn as usize].0 << 8).count_ones() as i16 * DOUBLED_PAWN_ENDING;
-
+        // add mobility score
         score += position.mobility[2] * BISHOP - position.mobility[8] * BISHOP;
         score += position.mobility[3] * ROOK_EG - position.mobility[9] * ROOK_EG;
         score += position.mobility[4] * QUEEN_EG - position.mobility[10] * QUEEN_EG;
+        // add score to get king closer to the other for mate
+        score += force_king_corner(&position);
     } else {
         // add material score
         score += position.material_scores[0][0] - position.material_scores[1][0]; 
@@ -175,13 +177,30 @@ pub fn init_evaluation_masks() -> Masks {
     return eval;
 }
 
-// pub fn force_king_corner(position: &Position) -> i16 {
-//     let mut eval = 0.0;
+pub fn force_king_corner(position: &Position) -> i16 {
+    let mut eval = 0.0;
 
-//     // favor positions where the opponent king has been forced into the edge of the board
-//     // this makes the bot be able to checkmate easier in the endgame
-//     return (eval * 10.0 * (1.0-(position.phase()as f32/24.0))) as i16;
-// }
+    // favour positions where the opponent king has been forced into the edge of the board
+    // this makes the bot be able to checkmate easier in the endgame
+    let opponent_square = if position.side == 0 { position.bitboards[Piece::BlackKing as usize].ls1b() } else {
+        position.bitboards[Piece::WhiteKing as usize].ls1b()
+    };
+    let opponent_rank = GET_RANK[opponent_square as usize];
+    let opponent_file = opponent_square % 8;
+
+    eval += (3 - opponent_file).max(opponent_file - 4) as f32 + (3 - opponent_rank).max(opponent_rank - 4) as f32;
+
+    // Incentivize moving king closer to opponent king
+    let king_square = if position.side == 0 { position.bitboards[Piece::WhiteKing as usize].ls1b() } else {
+        position.bitboards[Piece::BlackKing as usize].ls1b()
+    };
+    let king_rank = GET_RANK[king_square as usize];
+    let king_file = king_square % 8;
+
+    eval += 14.0 - ((king_file - opponent_file).abs() as f32 + (king_rank - opponent_rank).abs() as f32);
+
+    return if position.side == 0 { (eval * 3.0 * (1.25-(position.phase()as f32/24.0))) as i16 } else { -(eval * 3.0 * (1.25-(position.phase()as f32/24.0))) as i16 };
+}
 
 // calculates PST and piece av
 pub fn init_calculation(position: &mut Position) {

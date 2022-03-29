@@ -240,19 +240,19 @@ impl Position {
         // -6 the piece index if its black
         let both = Bitboard(self.occupancies[0].0 | self.occupancies[1].0);
         if color == 1 {
-            // match piece as usize {
-            //     // mobility
-            //     8 => {
-            //         self.mobility[8] = get_bishop_attacks(to, both).count_ones() as i16 - 7;
-            //     }
-            //     9 => {
-            //         self.mobility[9] = get_rook_attacks(to, both).count_ones() as i16 - 7;
-            //     }
-            //     10 => {
-            //         self.mobility[10] = get_queen_attacks(to, both).count_ones() as i16 - 7;
-            //     },
-            //     _ => ()
-            // }
+            match piece as usize {
+                // mobility
+                8 => {
+                    self.mobility[8] = get_bishop_attacks(to, both).count_ones() as i16 - 7;
+                }
+                9 => {
+                    self.mobility[9] = get_rook_attacks(to, both).count_ones() as i16 - 7;
+                }
+                10 => {
+                    self.mobility[10] = get_queen_attacks(to, both).count_ones() as i16 - 7;
+                },
+                _ => ()
+            }
 
 
             let index = (piece - 6) as usize;
@@ -261,19 +261,19 @@ impl Position {
             self.pst_scores[color as usize][0] += PSQT[index][from^56];
             self.pst_scores[color as usize][1] += PSQT_EG[index][from^56];
         } else {
-            // match piece as usize {
-            //     // mobility
-            //     2 => {
-            //         self.mobility[2] = get_bishop_attacks(to, both).count_ones() as i16 - 7;
-            //     }
-            //     3 => {
-            //         self.mobility[3] = get_rook_attacks(to, both).count_ones() as i16 - 7;
-            //     }
-            //     4 => {
-            //         self.mobility[4] = get_queen_attacks(to, both).count_ones() as i16 - 7;
-            //     },
-            //     _ => ()
-            // }
+            match piece as usize {
+                // mobility
+                2 => {
+                    self.mobility[2] = get_bishop_attacks(to, both).count_ones() as i16 - 7;
+                }
+                3 => {
+                    self.mobility[3] = get_rook_attacks(to, both).count_ones() as i16 - 7;
+                }
+                4 => {
+                    self.mobility[4] = get_queen_attacks(to, both).count_ones() as i16 - 7;
+                },
+                _ => ()
+            }
 
             self.pst_scores[color as usize][0] -= PSQT[piece as usize][to];
             self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][to];

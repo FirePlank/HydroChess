@@ -36,35 +36,8 @@ fn main() {
     init_all();
 
     // debug mode variable
-    let debug = true;
+    let debug = false;
     if debug {
-        // let mut pos = parse_position("position fen rnbqkbnr/1ppppppp/8/8/8/p7/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        // println!("{}", evaluate(&pos));
-        let mut position = parse_position("position fen 7k/2P5/8/8/8/8/2pP4/K7 w - - 0 2");
-        println!("{}", evaluate(&position));
-        // let move_ = pos.parse_uci("b2a3");
-        // position.side = 0;
-        // println!("{}",evaluate(&position));
-        // position.side = 1;
-        // position.unmake(move_);
-        // position.side = 0;
-        // println!("{}",evaluate(&position));
-        // let mut searcher = Searcher::new();
-        // searcher.search_position(&mut position, 100);
-        //println!("{}", evaluate(&position));
-        
-        // info score cp 95 depth 1 nodes 2 time 0 pv
-        // info score cp 0 depth 2 nodes 317 time 0 pv g1f3 g8f6
-        // info score cp 50 depth 3 nodes 427 time 1 pv g1f3 b8c6 b1c3
-        // info score cp 0 depth 4 nodes 1786 time 2 pv b1c3 g8f6 g1f3 b8c6
-        // info score cp 29 depth 5 nodes 2947 time 3 pv b1c3 b8c6 g1f3 g8f6 d2d4
-        // info score cp 0 depth 6 nodes 6939 time 6 pv b1c3 b8c6 g1f3 g8f6 e2e4 d7d5
-        // info score cp 27 depth 7 nodes 14042 time 9 pv b1c3 b8c6 g1f3 d7d5 d2d4 g8f6 c1g5
-        // info score cp 17 depth 8 nodes 57589 time 35 pv e2e4 b8c6 g1f3 g8f6 e4e5 f6d5 b1c3 e7e6
-        // info score cp 22 depth 9 nodes 103781 time 61 pv e2e4 b8c6 g1f3 g8f6 e4e5 f6g4 d2d4 d7d6 f1b5
-        // info score cp 12 depth 10 nodes 501930 time 262 pv b1c3 b8c6 d2d4 d7d5 g1f3 g8f6 c1g5 e7e6 e2e4 f8b4
-        // bestmove b1c3
-
 
     } else {
         // start the main UCI loop to handle commands

@@ -27,6 +27,18 @@ pub const ROOK_EG: i16 = 4;
 pub const QUEEN: i16 = 1;
 pub const QUEEN_EG: i16 = 2;
 
+// get rank from list
+#[rustfmt::skip]
+pub const GET_RANK: [i16; 64] = [
+    7, 7, 7, 7, 7, 7, 7, 7,
+    6, 6, 6, 6, 6, 6, 6, 6,
+    5, 5, 5, 5, 5, 5, 5, 5,
+    4, 4, 4, 4, 4, 4, 4, 4,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1, 1,
+	0, 0, 0, 0, 0, 0, 0, 0,
+];
 // Piece square tables
 #[rustfmt::skip]
 pub const PSQT: [[i16;64];6] = [
