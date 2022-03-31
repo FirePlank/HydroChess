@@ -6,26 +6,41 @@ use crate::evaluation::*;
 use crate::cache::*;
 
 use std::time::{SystemTime, UNIX_EPOCH};
- 
+use std::thread;
+
 pub const MAX_PLY: usize = 127;
 pub const MATE_VALUE: i16 = i16::MAX-150;
 pub const MATE_SCORE: i16 = i16::MAX-300;
 pub const INFINITY: i16 = i16::MAX;
 pub const NO_ENTRY: i16 = INFINITY-500;
+
+pub static mut OPTIONS: SearchOptions = SearchOptions::default();
 // stop search if time is up
 pub static mut STOP: bool = false;
-pub static mut REPETITION: [u64;1000] = [0;1000]; // I don't think the bot will play a game longer than 500 moves
-pub static mut REP_INDEX: usize = 0;
+
+pub struct SearchOptions {
+    pub threads_allowed: bool,
+    pub hash_size: u16
+}
+impl SearchOptions {
+    pub const fn default() -> SearchOptions {
+        SearchOptions {
+            threads_allowed: true,
+            hash_size: 32,
+        }
+    }
+}
 
 pub static mut TT: TranspositionTable = TranspositionTable {
     table: vec![],
     size: 0,
 };
 
+#[derive(Clone)]
 pub struct Searcher {
     pub ply: u8,
     pub nodes: u64,
-    pub time: SystemTime,
+    pub time: u128,
 
     pub killers: [[u32;MAX_PLY];2],
     pub history: [[u32;64];12],
@@ -48,11 +63,11 @@ pub struct Searcher {
 }
 
 impl Searcher {
-    pub fn new() -> Searcher {
+    pub const fn new() -> Searcher {
         Searcher {
             ply: 0,
             nodes: 0,
-            time: SystemTime::now(),
+            time: 0,
             killers: [[0;MAX_PLY];2],
             history: [[0;64];12],
             pv_table: [[0;MAX_PLY];MAX_PLY],
@@ -70,19 +85,19 @@ impl Searcher {
         }
     }
 
-    pub fn is_repetition(&self, position: &mut Position) -> bool {
-        unsafe {
-            // loop over repetition indices range
-            for index in 0..REP_INDEX {
-                // if repetition is found
-                if REPETITION[index] == position.hash {
-                    return true;
-                }
-            }
-            // if no repetition found
-            return false;
-        }
-    }
+    // pub fn is_repetition(&self, position: &mut Position) -> bool {
+    //     unsafe {
+    //         // loop over repetition indices range
+    //         for index in 0..REP_INDEX {
+    //             // if repetition is found
+    //             if REPETITION[index] == position.hash {
+    //                 return true;
+    //             }
+    //         }
+    //         // if no repetition found
+    //         return false;
+    //     }
+    // }
 
     pub fn communicate(&mut self) {
         if self.timeset && SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() > self.stoptime {
@@ -90,7 +105,7 @@ impl Searcher {
         }
     }
 
-    pub fn search_position(&mut self, position: &mut Position, depth: u8) {
+    pub fn search_position(&'static mut self, position: &'static mut Position, depth: u8) {
         // reset search variables
         unsafe { STOP = false; }
 
@@ -99,8 +114,39 @@ impl Searcher {
             if unsafe { STOP } { break; }
             // enable follow PV flag
             self.follow_pv = true;
-            // find best move within a given position
-            let score = self.negamax(position, -INFINITY, INFINITY, current_depth, true);
+
+            // SMP search
+            let mut score = -INFINITY;
+            // multi-threaded search if allowed
+            if unsafe { OPTIONS.threads_allowed } && current_depth > 6 {
+                let mut move_list = MoveList::new();
+                position.generate_pseudo_moves(&mut move_list);
+                let mut threads = Vec::with_capacity(move_list.count as usize);
+                let mut handles = Vec::with_capacity(move_list.count as usize);
+                for _ in 0..(move_list.count as f32/1.5) as usize {
+                    let mut pos = position.clone();
+                    let mut searcher = self.clone();
+                    let handle = thread::spawn(move || {
+                        let scorer: i16 = searcher.negamax(&mut pos, -INFINITY, INFINITY, current_depth-1, false);
+                        return (scorer, searcher.pv_length[0], searcher.pv_table[0], searcher.nodes);
+                    });
+                    handles.push(handle);
+                }
+                while !handles.is_empty() {
+                    threads.push(handles.pop().expect("error while popping").join().unwrap());
+                }
+                for item in threads.iter() {
+                    if item.0 > score {
+                        self.nodes = item.3;
+                        score = item.0;
+                        self.pv_length[0] = item.1;
+                        self.pv_table[0] = item.2;
+                    }
+                }
+            } else {
+                // find best move within a given position
+                score = self.negamax(position, -INFINITY, INFINITY, current_depth, true);
+            }
 
             // if score <= alpha || score >= beta {
             //     alpha = -INFINITY;
@@ -112,14 +158,15 @@ impl Searcher {
             // alpha = score - 50;
             // beta = score + 50;
             let mate;
+
             if score > -MATE_VALUE && score < -MATE_SCORE {
-                print!("info score mate {} depth {} nodes {} time {} pv ", -(self.pv_length[0] as i16)/2-1, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
+                print!("info score mate {} depth {} nodes {} time {} pv ", -(self.pv_length[0] as i16)/2-1, current_depth, self.nodes, SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis()-self.time);
                 mate = true;
             } else if score > MATE_SCORE && score < MATE_VALUE {
-                print!("info score mate {} depth {} nodes {} time {} pv ", self.pv_length[0]/2+1, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
+                print!("info score mate {} depth {} nodes {} time {} pv ", self.pv_length[0]/2+1, current_depth, self.nodes, SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis()-self.time);
                 mate = true;
             } else {
-                print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, SystemTime::now().duration_since(self.time).expect("Time went backwards").as_millis());
+                print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis()-self.time);
                 mate = false;
             }
             // loop over the moves within a PV lone
@@ -235,14 +282,15 @@ impl Searcher {
         let mut hash_flag = LOWER_BOUND;
 
         let mut score: i16;
+        let is_root = self.ply == 0;
 
-        // if position repeats, return 0 (draw)
-        if self.ply != 0 && self.is_repetition(position) {
+        // fifty-move rule
+        if position.is_fifty() {
             return 0;
         }
 
         // read hash entry
-        if self.ply != 0 && !pv_node {
+        if !is_root && !pv_node {
             score = unsafe { TT.probe(alpha, beta, &mut best_move, depth, self.ply, position.hash) };
             if score != NO_ENTRY {
                 // return score
@@ -267,13 +315,20 @@ impl Searcher {
             return evaluate(position);
         }
 
-        // mate distance pruning
-        if alpha < -MATE_VALUE {
-            alpha = -MATE_VALUE;
-        } if beta > MATE_VALUE-1 {
-            beta = MATE_VALUE-1;
-        } if alpha >= beta {
-            return alpha;
+        if !is_root {
+            // repetition
+            if position.is_threefold() {
+                return 0;
+            }
+
+            // mate distance pruning
+            if alpha < -MATE_VALUE {
+                alpha = -MATE_VALUE;
+            } if beta > MATE_VALUE-1 {
+                beta = MATE_VALUE-1;
+            } if alpha >= beta {
+                return alpha;
+            }
         }
 
         // increment nodes counter
@@ -303,37 +358,16 @@ impl Searcher {
             // null move pruning
             if null_move {
                 if self.ply != 0 && depth > 2 && eval >= beta {
+                    // increment ply
                     self.ply += 1;
-
-                    // increment rep_index & store hash key
-                    unsafe {
-                        REP_INDEX += 1;
-                        REPETITION[REP_INDEX] = position.hash;
-                    }
-                    // hash enpassant if available
-                    if position.enpassant != Square::NoSquare {
-                        position.hash ^= unsafe { ZOBRIST_EP_KEYS[position.enpassant as usize] };
-                    }
-                    // preserve enpassant and hash
-                    let enpassant = position.enpassant;
-                    position.enpassant = Square::NoSquare;
-                    // make a null move
-                    position.side ^= 1;
-                    position.hash ^= unsafe { ZOBRIST_TURN };
-                    
+                    // make null move
+                    position.make_null_move();
                     // search moves with reduced depth to find beta cutoffs
                     let score = -self.negamax(position, -beta, -beta+1, depth-1-self.reduction_limit, false);
                     // take back null move
-                    position.side ^= 1;
-                    position.hash ^= unsafe { ZOBRIST_TURN };
-                    position.enpassant = enpassant;
-                    if position.enpassant != Square::NoSquare {
-                        position.hash ^= unsafe { ZOBRIST_EP_KEYS[enpassant as usize] };
-                    }
-
+                    position.unmake_null_move();
+                    // decrement ply
                     self.ply -= 1;
-                    // decrement repetition index
-                    unsafe { REP_INDEX -= 1; }
 
                     // return 0 if time is up
                     if unsafe { STOP } { return NO_ENTRY; }
@@ -391,12 +425,6 @@ impl Searcher {
             self.ply += 1;
             legal_moves += 1;
 
-            // increment rep_index & store hash key
-            unsafe {
-                REP_INDEX += 1;
-                REPETITION[REP_INDEX] = position.hash;
-            }
-
             // full depth search
             if moves_searched == 0 {
                 // do normal alpha-beta search
@@ -425,7 +453,7 @@ impl Searcher {
             // decrement ply
             self.ply -= 1;
             // decrement repetition index
-            unsafe { REP_INDEX -= 1; }
+            // unsafe { REP_INDEX = REP_INDEX.wrapping_sub(1); }
             // return 0 if time is up
             if unsafe { STOP } { return 0; }
             // increment the number of moves searched so far

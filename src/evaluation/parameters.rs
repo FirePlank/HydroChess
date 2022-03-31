@@ -1,6 +1,6 @@
 // evaluation parameters and constants
-pub const PIECE_VALUE: [i16; 6] = [95, 370, 390, 590, 1100, 10000];
-pub const PIECE_VALUE_EG: [i16; 6] = [115, 310, 270, 680, 1300, 10000];
+pub const PIECE_VALUE: [i16; 6] = [95, 370, 390, 590, 1100, 0];
+pub const PIECE_VALUE_EG: [i16; 6] = [115, 310, 270, 680, 1300, 0];
 pub const BISHOP_PAIR: i16 = 15;
 
 pub const DOUBLED_PAWN_OPENING: i16 = -6;
@@ -11,6 +11,8 @@ pub const OPEN_FILE: i16 = 20;
 
 pub const SEMI_OPEN_FILE_PENALTY: i16 = 10;
 pub const OPEN_FILE_PENALTY: i16 = 25;
+pub const SIDE_SEMI_OPEN: i16 = 6;
+pub const SIDE_OPEN: i16 = 16;
 
 pub const KING_SHIELD: i16 = 6;
 

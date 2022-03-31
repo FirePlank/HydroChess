@@ -1,9 +1,10 @@
-use crate::r#move::movegen::*;
-use crate::board::position::{self, *};
+use crate::{r#move::movegen::*, board::position};
+use crate::board::position::*;
+use crate::cache::*;
 use crate::r#move::encode::*;
 use crate::search::*;
 
-use std::time::UNIX_EPOCH;
+use std::time::{UNIX_EPOCH, SystemTime};
 
 impl Position {
     // parse user/GUI move string input (eg. "e2e4")
@@ -90,10 +91,11 @@ impl Position {
         // init depth
         let mut depth: u8 = 0;
         // split command by whitespace
-        let mut split_cmd = cmd.trim().split_whitespace();
+        let trimmed = cmd.trim().to_lowercase();
+        let mut split_cmd = trimmed.split_whitespace();
         split_cmd.next().unwrap_or_else(error);
 
-        let mut searcher = Searcher::new();
+        let mut searcher: Searcher = Searcher::new();
         let phase = self.phase();
         let addon = if phase as i32 - 22 > 0 { phase - 6 } else {
             if phase as i32 - 15 > 0 { phase - 2 } else { 
@@ -102,6 +104,8 @@ impl Position {
         };
         let sub = if phase < 10 { 2 } else { 0 };
         let factor = 1.0-(((phase as f32-addon as f32)+sub as f32)/24f32);
+        unsafe {
+        searcher.time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
         loop {
             let next = split_cmd.next().unwrap_or_else(silent);
             if next == "." { break; }
@@ -174,12 +178,24 @@ impl Position {
         if searcher.playtime != -1 {
             searcher.timeset = true;
             searcher.playtime /= searcher.movestogo;
-            searcher.stoptime = searcher.time.duration_since(UNIX_EPOCH).unwrap().as_millis() + (searcher.playtime as f32*factor) as u128 + (searcher.inc as f32*factor) as u128;
+
+            // calculate the stop time based on the available moves and the phase of the game
+            let mut move_list = MoveList::new();
+            self.generate_pseudo_moves(&mut move_list);
+            searcher.stoptime = searcher.time + (searcher.playtime as f32*factor*(1.0+(move_list.count as f32/55.5))) as u128 + (searcher.inc as f32*factor) as u128;
         }
         
         if depth == 0 { depth = MAX_PLY as u8; }
-        println!("info string time: {} start: {} stop: {} depth: {} timeset: {} factor: {}", searcher.playtime, searcher.time.duration_since(UNIX_EPOCH).unwrap().as_millis(), searcher.stoptime, depth, searcher.timeset, factor);
-        searcher.search_position(self, depth);
+        println!("info string time: {} start: {} stop: {} depth: {} timeset: {} factor: {}", searcher.playtime, searcher.time, searcher.stoptime, depth, searcher.timeset, factor);
+
+        // GARGAGE CODE ALERT!!! If I don't copy the searcher it wont reset the values from the previous search due to it being static.
+        // If you have a better solution to get the multi-threaded search working without having to use static, please let me know.
+        static mut search: Searcher = Searcher::new();
+        search = searcher.clone();
+        static mut pos: Position = Position::empty();
+        pos = self.clone();
+        search.search_position(&mut pos, depth);
+        }
     }
 }
 
@@ -241,4 +257,59 @@ pub fn parse_position(cmd: &str) -> Position {
         }
     }
     return Position::empty();
+}
+
+pub fn parse_option(cmd: &str) {
+    // init error closures
+    let error = || {
+        println!("info string Invalid option given");
+        return ".";
+    };
+    let silent = || {
+        return ".";
+    };
+
+    // split command by whitespace
+    let trimmed = cmd.trim().to_lowercase();
+    let mut split_cmd = trimmed.split_whitespace();
+    split_cmd.next().unwrap_or_else(error);
+    // check if they have set a name
+    if split_cmd.next().unwrap_or_else(silent) != "name" { return; }
+
+    let name = split_cmd.next().unwrap_or_else(error);
+    if name == "use" {
+        if split_cmd.next().unwrap_or_else(error) == "threads" {
+            if split_cmd.next().unwrap_or_else(error) == "value" {
+                let response = split_cmd.next().unwrap_or_else(error);
+                if response == "true" {
+                    unsafe { OPTIONS.threads_allowed = true; }
+                } else if response == "false" {
+                    unsafe { OPTIONS.threads_allowed = false; }
+                } else {
+                    println!("info string Invalid value given, please give either true or false");
+                }
+            }
+        }
+    } else if name == "hash" {
+        if split_cmd.next().unwrap_or_else(error) == "value" {
+            let value = split_cmd.next().unwrap_or_else(silent).parse::<u16>().unwrap_or_else(|error| {
+                println!("info string Invalid value for option given: {}", error);
+                return 0;
+            });
+            if value < 1 {
+                println!("info string Invalid value given, please give a value greater than 0");
+            } else {
+                unsafe { 
+                    OPTIONS.hash_size = value; 
+                    TT = TranspositionTable::new(value as usize, false);
+                }
+            }
+        }
+    } else if name == "clear" {
+        if split_cmd.next().unwrap_or_else(error) == "hash" {
+            unsafe { TT.reset(); }
+        }
+    } else {
+        println!("info string Unknown option given");
+    }
 }

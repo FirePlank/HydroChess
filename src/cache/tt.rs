@@ -24,13 +24,15 @@ pub struct TranspositionTable {
 }
 
 impl TranspositionTable {
-    pub fn new(size: usize) -> TranspositionTable {
+    pub fn new(size: usize, quiet: bool) -> TranspositionTable {
         let bucket_size = size * 1048576 / mem::size_of::<TTData>();
         let mut tt = TranspositionTable {
             table: Vec::with_capacity(bucket_size),
             size: bucket_size,
         };
-        println!("info string allocating {} KB and {} items for TT", bucket_size*mem::size_of::<TTData>()/1024, bucket_size);
+        if !quiet {
+            println!("info string allocating {} KB and {} items for TT", bucket_size*mem::size_of::<TTData>()/1024, bucket_size);
+        }
 
         if size != 0 {
             tt.table.resize(tt.size, Default::default());

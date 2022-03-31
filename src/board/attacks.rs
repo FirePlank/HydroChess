@@ -457,7 +457,7 @@ pub fn init_all() {
 
     unsafe {
         // init global transposition table
-        TT = TranspositionTable::new(24);
+        TT = TranspositionTable::new(OPTIONS.hash_size as usize, true);
 
         // init evaluation masks
         MASKS = init_evaluation_masks();

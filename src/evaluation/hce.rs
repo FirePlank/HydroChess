@@ -29,9 +29,15 @@ impl Masks {
 
 // evaluation function
 pub fn evaluate(position: &Position) -> i16 {
+
     let mut score = 0;
     let phase = position.phase() <= 7;
     if phase {
+        // check if insufficent material
+        if position.is_insufficent_material() {
+            return 0;
+        }
+
         // add material score
         score += position.material_scores[0][1] - position.material_scores[1][1]; 
         // add piece square table score
@@ -230,9 +236,9 @@ pub fn init_calculation(position: &mut Position) {
                     // mobility
                     2 => {
                         if color_index == 0 {
-                            position.mobility[2] = get_bishop_attacks(square as usize, both).count_ones() as i16 - 7;
+                            position.mobility[2] = get_bishop_attacks(square as usize, both).count_ones() as i16 - 6;
                         } else {
-                            position.mobility[8] = get_bishop_attacks(square as usize, both).count_ones() as i16 - 7;
+                            position.mobility[8] = get_bishop_attacks(square as usize, both).count_ones() as i16 - 6;
                         }
                     }
                     3 => {
@@ -340,11 +346,35 @@ pub fn calculate_all(position: &Position, phase: bool) -> i16 {
                     },
                     5 | 11 => {
                         // open file penalties and king safety bonus
-                        if position.side == 0 && (position.bitboards[0].0 & MASKS.file_masks[square as usize]) == 0 {
-                            if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize]) == 0 {
-                                score -= OPEN_FILE_PENALTY;
-                            } else {
-                                score -= SEMI_OPEN_FILE_PENALTY;
+                        if position.side == 0 {
+                            if (position.bitboards[0].0 & MASKS.file_masks[square as usize]) == 0 {
+                                if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize]) == 0 {
+                                    // let mut a = (score, 0, 0);
+                                    score -= OPEN_FILE_PENALTY;
+                                    // a.1 = score;
+                                    // a.2 = OPEN_FILE_PENALTY;
+                                    // println!("{:?}", a);
+                                } else {
+                                    score -= SEMI_OPEN_FILE_PENALTY;
+                                }
+                            } else if square as usize % 8 != 0 && (position.bitboards[0].0 & MASKS.file_masks[square as usize - 1]) == 0 {
+                                if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize - 1]) == 0 {
+                                    if (position.bitboards[Piece::BlackRook as usize].0 & MASKS.file_masks[square as usize - 1]) != 0 {
+                                        score -= 50;
+                                    }
+                                    score -= SIDE_OPEN;
+                                } else {
+                                    score -= SIDE_SEMI_OPEN;
+                                }
+                            } else if square as usize % 8 != 7 && (position.bitboards[0].0 & MASKS.file_masks[square as usize + 1]) == 0 {
+                                if (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize + 1]) == 0 {
+                                    if (position.bitboards[Piece::BlackRook as usize].0 & MASKS.file_masks[square as usize + 1]) != 0 {
+                                        score -= 50;
+                                    }
+                                    score -= SIDE_OPEN;
+                                } else {
+                                    score -= SIDE_SEMI_OPEN;
+                                }
                             }
                             score += (KING_ATTACKS[square as usize] & position.occupancies[0].0).count_ones() as i16 * KING_SHIELD;
                         } else {
@@ -353,6 +383,24 @@ pub fn calculate_all(position: &Position, phase: bool) -> i16 {
                                     score += OPEN_FILE_PENALTY;
                                 } else {
                                     score += SEMI_OPEN_FILE_PENALTY;
+                                }
+                            } else if square as usize % 8 != 0 && (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize - 1]) == 0 {
+                                if (position.bitboards[0].0 & MASKS.file_masks[square as usize - 1]) == 0 {
+                                    if (position.bitboards[Piece::WhiteRook as usize].0 & MASKS.file_masks[square as usize - 1]) != 0 {
+                                        score += 50;
+                                    }
+                                    score += SIDE_OPEN;
+                                } else {
+                                    score += SIDE_SEMI_OPEN;
+                                }
+                            } else if square as usize % 8 != 7 && (position.bitboards[Piece::BlackPawn as usize].0 & MASKS.file_masks[square as usize + 1]) == 0 {
+                                if (position.bitboards[0].0 & MASKS.file_masks[square as usize + 1]) == 0 {
+                                    if (position.bitboards[Piece::WhiteRook as usize].0 & MASKS.file_masks[square as usize + 1]) != 0 {
+                                        score += 50;
+                                    }
+                                    score += SIDE_OPEN;
+                                } else {
+                                    score += SIDE_SEMI_OPEN;
                                 }
                             }
                             score -= (KING_ATTACKS[square as usize] & position.occupancies[0].0).count_ones() as i16 * KING_SHIELD;

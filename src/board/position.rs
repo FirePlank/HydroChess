@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-use std::mem;
 
 use super::attacks::*;
-use super::bitboard::*;
 use crate::r#move::*;
 use crate::evaluation::*;
 use crate::board::*;
@@ -108,7 +106,7 @@ pub struct Position {
     pub halfmove: u16,
     pub fullmove: u16,
     pub hash: u64,
-    pub pawn_hash: u64,
+    pub null_moves: u8,
     pub halfmove_clocks_stack: Vec<u16>,
     pub captured_pieces_stack: Vec<u8>,
     pub castling_rights_stack: Vec<u8>,
@@ -147,7 +145,7 @@ impl Position {
             halfmove: 0,
             fullmove: 0,
             hash: 0,
-            pawn_hash: 0,
+            null_moves: 0,
             halfmove_clocks_stack: Vec::with_capacity(32),
             captured_pieces_stack: Vec::with_capacity(32),
             castling_rights_stack: Vec::with_capacity(32),
@@ -161,7 +159,7 @@ impl Position {
         init_calculation(&mut pos);
         return pos;
     }
-    pub fn empty() -> Position {
+    pub const fn empty() -> Position {
         Position {
             bitboards: [Bitboard(0); 12],
             occupancies: [Bitboard(0); 2],
@@ -171,12 +169,12 @@ impl Position {
             halfmove: 0,
             fullmove: 0,
             hash: 0,
-            pawn_hash: 0,
-            halfmove_clocks_stack: Vec::with_capacity(32),
-            captured_pieces_stack: Vec::with_capacity(32),
-            castling_rights_stack: Vec::with_capacity(32),
-            en_passant_stack: Vec::with_capacity(32),
-            hash_stack: Vec::with_capacity(32),
+            null_moves: 0,
+            halfmove_clocks_stack: vec![],
+            captured_pieces_stack: vec![],
+            castling_rights_stack: vec![],
+            en_passant_stack: vec![],
+            hash_stack: vec![],
             material_scores: [[0; 2]; 2],
             pst_scores: [[0; 2]; 2],
             mobility: [0; 12],
@@ -314,7 +312,7 @@ impl Position {
             match piece as usize {
                 // mobility
                 2 => {
-                    self.mobility[2] = get_bishop_attacks(field as usize, both).count_ones() as i16 - 7;
+                    self.mobility[2] = get_bishop_attacks(field as usize, both).count_ones() as i16 - 6;
                 }
                 3 => {
                     self.mobility[3] = get_rook_attacks(field as usize, both).count_ones() as i16 - 7;
@@ -565,12 +563,12 @@ impl Position {
             self.hash ^= ZOBRIST_TURN;
         }
 
-        // DEBUG: check hash if correct
-        // let hash_from = self.generate_hash_key();
-        // if hash_from != self.hash {
-        //     Move(move_).show();
-        //     println!("      WRONG: {} != {}", hash_from, self.hash);
-        // }
+        // update half move clock
+        if piece == 0 || capture != 0 {
+            self.halfmove = 0;
+        } else {
+            self.halfmove += 1;
+        }
 
         if self.side == 0 {
             self.fullmove += 1;
@@ -936,7 +934,7 @@ impl Position {
         position.hash_stack = Vec::with_capacity(32);
 
         position.hash = position.generate_hash_key();
-        position.pawn_hash = 0;
+        position.null_moves = 0;
 
         init_calculation(&mut position);
 
@@ -1035,4 +1033,86 @@ impl Position {
         }
         println!("   a b c d e f g h\n");
     }
+
+    pub fn make_null_move(&mut self) {
+        let color = self.side;
+        let enemy_color = self.side ^ 1;
+
+        self.halfmove_clocks_stack.push(self.halfmove);
+        self.castling_rights_stack.push(self.castle);
+        self.en_passant_stack.push(self.enpassant);
+        self.hash_stack.push(self.hash);
+
+        if self.enpassant != Square::NoSquare {
+            self.hash ^= unsafe { ZOBRIST_EP_KEYS[self.enpassant as usize] };
+            self.enpassant = Square::NoSquare;
+        }
+
+        if color == 1 {
+            self.fullmove += 1;
+        }
+
+        self.null_moves += 1;
+        self.side = enemy_color;
+        self.hash ^= unsafe { ZOBRIST_TURN };
+    }
+
+    pub fn unmake_null_move(&mut self) {
+        let color = self.side ^ 1;
+
+        self.halfmove_clocks_stack.pop().unwrap();
+        self.hash = self.hash_stack.pop().unwrap();
+        self.enpassant = self.en_passant_stack.pop().unwrap();
+        self.castle = self.castling_rights_stack.pop().unwrap();
+
+        if color == 1 {
+            self.fullmove -= 1;
+        }
+
+        self.side = color;
+        self.null_moves -= 1;
+    }
+
+    pub fn is_insufficent_material(&self) -> bool {
+        if (self.material_scores[0][0] - self.material_scores[1][0]).abs() < 391 && self.bitboards[0].count() == 0 && self.bitboards[Piece::WhiteRook as usize].count() == 0
+        && self.bitboards[Piece::BlackPawn as usize].count() == 0 && self.bitboards[Piece::BlackRook as usize].count() == 0 {
+            return true;
+        }
+        return false;
+    }
+
+    pub fn is_threefold(&self) -> bool {
+        if self.hash_stack.len() < 6 || self.null_moves > 0 {
+            return false;
+        }
+
+        let mut repetitions_count = 1;
+        let mut from = self.hash_stack.len().wrapping_sub(self.halfmove as usize);
+        let to = self.hash_stack.len() - 1;
+
+        if from > 1024 {
+            from = 0;
+        }
+
+        for hash_index in (from..to).rev().step_by(2) {
+            if self.hash_stack[hash_index] == self.hash {
+                repetitions_count += 1;
+
+                if repetitions_count >= 3 {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    pub fn is_fifty(&self) -> bool {
+        if self.null_moves > 0 {
+            return false;
+        }
+
+        return self.halfmove >= 100;
+    }
+
 }
