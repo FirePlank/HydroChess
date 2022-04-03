@@ -463,4 +463,6 @@ pub fn init_all() {
         MASKS = init_evaluation_masks();
     };
 
+    // init SEE (Static Exchange Evaluation)
+    init_see();
 }

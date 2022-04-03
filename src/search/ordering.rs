@@ -55,6 +55,7 @@ impl Searcher {
 
         let mut score: u32 = 0;
         let promoted = promoted(move_);
+        let target = target(move_);
         // score capture move
         if capture(move_) != 0 {
             // prioritize captures
@@ -66,8 +67,13 @@ impl Searcher {
                 // promotions always first
                 return score+2000+PIECE_VALUE[(promoted%6) as usize] as u32;
             }
+
+            // let captured = position.get_piece(target);
+            // let attackers = position.get_attackers(target as usize, position.side);
+            // let defenders = position.get_attackers(target as usize, position.side^1);
             // score move by MVV LVA lookup [source piece][target piece]
-            return score + MVV_LVA[(get_piece(move_)%6) as usize][position.get_square_piece(target(move_) as usize)%6] as u32;
+            return score + MVV_LVA[(get_piece(move_)%6) as usize][position.get_square_piece(target as usize)%6] as u32;
+            // return score + get_see(get_piece(move_) % 6, captured as u8, attackers, defenders) as u32;
         }
         // score quiet move
         else {
@@ -79,7 +85,7 @@ impl Searcher {
                 score += 2500;
             } else {
                 // score history move
-                score += self.history[get_piece(move_) as usize][target(move_) as usize] as u32;
+                score += self.history[get_piece(move_) as usize][target as usize] as u32;
             }
 
             // reward for castling

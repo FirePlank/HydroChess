@@ -34,6 +34,7 @@ impl SearchOptions {
 pub static mut TT: TranspositionTable = TranspositionTable {
     table: vec![],
     size: 0,
+    age: 0,
 };
 
 #[derive(Clone)]
@@ -118,7 +119,7 @@ impl Searcher {
             // SMP search
             let mut score = -INFINITY;
             // multi-threaded search if allowed
-            if unsafe { OPTIONS.threads_allowed } && current_depth > 6 {
+                if unsafe { OPTIONS.threads_allowed } && current_depth > 6 {
                 let mut move_list = MoveList::new();
                 position.generate_pseudo_moves(&mut move_list);
                 let mut threads = Vec::with_capacity(move_list.count as usize);
@@ -187,6 +188,11 @@ impl Searcher {
         print!("bestmove ");
         Move(self.pv_table[0][0]).show();
         println!();
+
+        // age TT
+        unsafe {
+            TT.age();
+        }
     }
 
     pub fn enable_pv_scoring(&mut self, move_list: &MoveList) {
@@ -284,37 +290,22 @@ impl Searcher {
         let mut score: i16;
         let is_root = self.ply == 0;
 
-        // fifty-move rule
-        if position.is_fifty() {
-            return 0;
-        }
-
-        // read hash entry
-        if !is_root && !pv_node {
-            score = unsafe { TT.probe(alpha, beta, &mut best_move, depth, self.ply, position.hash) };
-            if score != NO_ENTRY {
-                // return score
-                return score;
-            }
-        }
-        // every 2047 nodes
-        if self.nodes & 2047 == 0 {
-            self.communicate();
-        }
-        // init PV lenght
-        self.pv_length[self.ply as usize] = self.ply;
-
-        
-        // recursion escape condition
-        if depth == 0 {
-            return self.quiescence(position, alpha, beta);
-        }
+        // increment nodes counter
+        self.nodes += 1;
 
         // too deep, return eval
         if self.ply >= MAX_PLY as u8 {
             return evaluate(position);
         }
 
+        // fifty-move rule
+        if position.is_fifty() {
+            return 0;
+        }
+
+        // init PV lenght
+        self.pv_length[self.ply as usize] = self.ply;
+        
         if !is_root {
             // repetition
             if position.is_threefold() {
@@ -331,8 +322,12 @@ impl Searcher {
             }
         }
 
-        // increment nodes counter
-        self.nodes += 1;
+        // self.pv_table[self.ply as usize][self.ply as usize] = 0;
+
+        // recursion escape condition
+        if depth == 0 {
+            return self.quiescence(position, alpha, beta);
+        }
 
         // is king in check
         let in_check = position.is_attacked(if position.side == 0 { position.bitboards[Piece::WhiteKing as usize].ls1b() as usize } else {
@@ -343,10 +338,25 @@ impl Searcher {
         if in_check {
             depth += 1;
         }
-        else if !in_check && !pv_node {
-            // static evaluation
-            let eval = evaluate(position);
 
+        // read hash entry
+        if !is_root && !pv_node {
+            score = unsafe { TT.probe(alpha, beta, &mut best_move, depth, self.ply, position.hash) };
+            if score != NO_ENTRY {
+                // return score
+                return score;
+            }
+        }
+        
+        // every 2047 nodes
+        if self.nodes & 2047 == 0 {
+            self.communicate();
+        }
+
+        // static evaluation
+        let eval = evaluate(position);
+
+        if !in_check && !pv_node {
             // evaluation pruning
             if depth < 3 && (beta-1).abs() as i32 > -49000 + 100 {
                 let eval_margin = PIECE_VALUE[Piece::WhitePawn as usize] * depth as i16;
@@ -354,6 +364,17 @@ impl Searcher {
                     return eval - eval_margin;
                 }
             }
+
+            // // razoring
+            // if depth < 2 && eval + 339 < alpha {
+            //     return self.quiescence(position, alpha, beta);
+            // }
+
+            // // futility pruning
+            // let reversed_fp_margin = 64*depth as i16;
+            // if depth < 9 && eval - reversed_fp_margin >= beta {
+            //     return eval - reversed_fp_margin;
+            // }
 
             // null move pruning
             if null_move {
@@ -392,6 +413,9 @@ impl Searcher {
                 }
             }
         }
+        // nice name btw lol
+        let fp_margin = eval + 97 * depth as i16;
+
         // legal moves
         let mut legal_moves = 0;
         // create move list
@@ -411,10 +435,27 @@ impl Searcher {
         // number of moves searched in a move list
         let mut moves_searched = 0;
 
+        let mut best_score = -INFINITY;
+        let mut skip_quiet = false;
+
         // loop over moves within move list
         for count in 0..counted {
             // get move                               
             let move_ = sorted[count as usize].1;
+
+            let is_quiet = capture(move_) == 0;
+            if is_quiet && skip_quiet {
+                continue;
+            }
+
+            let is_killer = self.killers[0][self.ply as usize] == move_ || self.killers[1][self.ply as usize] == move_;
+
+            if !is_root && best_score > -INFINITY {
+                if depth < 8 && is_quiet && !is_killer && fp_margin <= alpha && alpha.abs() < INFINITY - 100 {
+                    skip_quiet = true;
+                    continue;
+                }
+            }
 
             if !position.make(move_) {
                 position.unmake(move_);
@@ -459,15 +500,21 @@ impl Searcher {
             // increment the number of moves searched so far
             moves_searched += 1;
 
+
+            if score > best_score {
+                best_score = score;
+            }
+
             // fail-hard beta cutoff
             if score > alpha {
                 hash_flag = EXACT;
                 best_move.value = move_;
+                best_score = score;
                 // PV node (move)
                 alpha = score;
 
                 // on quiet move
-                if capture(move_) == 0 {  
+                if is_quiet {  
                     // store history moves
                     self.history[get_piece(move_) as usize][target(move_) as usize] += depth as u32;
                 }
@@ -487,7 +534,7 @@ impl Searcher {
                     unsafe { TT.write(position.hash, beta, best_move.value, depth, self.ply, UPPER_BOUND); }
 
                     // on quiet moves
-                    if capture(move_) == 0 {
+                    if is_quiet {
                         // store killer moves
                         self.killers[1][self.ply as usize] = self.killers[0][self.ply as usize];
                         self.killers[0][self.ply as usize] = move_;

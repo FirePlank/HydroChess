@@ -351,6 +351,29 @@ impl Position {
         }
     }
 
+    pub fn get_piece(&self, square: u8) -> usize {
+        let start_piece;
+        let end_piece;
+        if self.side == 0 {
+            // white to move
+            start_piece = Piece::BlackPawn as usize;
+            end_piece = Piece::BlackKing as usize;
+        } else {
+            // black to move
+            start_piece = Piece::WhitePawn as usize;
+            end_piece = Piece::WhiteKing as usize;
+        }
+
+        // loop over bitboard opposite to the current side to move
+        for bb_piece in start_piece..end_piece + 1 {
+            // if there is a piece on the target square
+            if self.bitboards[bb_piece].get(square as usize) != 0 {
+                return bb_piece % 6;
+            }
+        }
+        return 15;
+    }
+
     pub fn make(&mut self, move_: u32) -> bool {
         let opp_color = self.side ^ 1;
         // parse move
@@ -367,6 +390,11 @@ impl Position {
         self.castling_rights_stack.push(self.castle);
         self.en_passant_stack.push(self.enpassant);
         self.hash_stack.push(self.hash);
+        
+        // if self.enpassant != Square::NoSquare {
+        //     self.hash ^= unsafe { ZOBRIST_EP_KEYS[self.enpassant as usize & 7] };
+        //     self.enpassant = Square::NoSquare;
+        // }
 
         // move piece
         self.move_piece(
@@ -424,8 +452,8 @@ impl Position {
                     break;
                 }
             }
-            // handle pawn promotions
         }
+        // handle pawn promotions
         if promoted != 0 {
             // erase the pawn from the target square and remove from hash key
             unsafe {
@@ -436,12 +464,11 @@ impl Position {
                     self.remove_piece(1, Piece::BlackPawn as u8, target_square);
                     self.hash ^= ZOBRIST_KEYS[Piece::BlackPawn as usize][target_square as usize];
                 }
-
+                // set up promoted piece on chess board
+                self.add_piece(self.side as u8, promoted, target_square);
                 // add promoted piece to hash key
                 self.hash ^= ZOBRIST_KEYS[promoted as usize][target_square as usize];
             }
-            // set up promoted piece on chess board
-            self.add_piece(self.side as u8, promoted, target_square);
         }
         // handle enpassant captures
         unsafe {
@@ -466,11 +493,17 @@ impl Position {
         // handle double pawn push
         if double != 0 {
             // set enpassant square
-            if self.side == 0 {
-                // using transmute as its a few hudred nanoseconds faster than indexing a list with the squares lol
-                self.enpassant = unsafe { std::mem::transmute(target_square + 8) };
-            } else {
-                self.enpassant = unsafe { std::mem::transmute(target_square - 8) };
+            unsafe {
+                if self.side == 0 {
+                    // using transmute as its a few hudred nanoseconds faster than indexing a list with the squares lol
+                    self.enpassant = std::mem::transmute(target_square + 8);
+                    // hash enpassant
+                    self.hash ^= ZOBRIST_EP_KEYS[target_square as usize + 8];
+                } else {
+                    self.enpassant = std::mem::transmute(target_square - 8);
+                    // hash enpassant
+                    self.hash ^= ZOBRIST_EP_KEYS[target_square as usize - 8];
+                }
             }
         }
 
@@ -562,6 +595,12 @@ impl Position {
         unsafe {
             self.hash ^= ZOBRIST_TURN;
         }
+        // self.hash = self.generate_hash_key();
+        // if self.hash != self.generate_hash_key() {
+        //     print!("move: ");
+        //     Move(move_).show();
+        //     println!();
+        // }
 
         // update half move clock
         if piece == 0 || capture != 0 {
@@ -1014,6 +1053,114 @@ impl Position {
 
             return false;
         }
+    }
+
+    pub fn get_attackers(&self, square: usize, side: usize) -> u8 {
+        let mut attackers = 0;
+        
+        let bishops_rooks = if side == Side::WHITE {
+            self.bitboards[Piece::BlackBishop as usize].0
+                | self.bitboards[Piece::BlackRook as usize].0
+        } else {
+            self.bitboards[Piece::WhiteBishop as usize].0
+                | self.bitboards[Piece::WhiteRook as usize].0
+        };
+        let rooks_queens = if side == Side::WHITE {
+            self.bitboards[Piece::BlackQueen as usize].0
+                | self.bitboards[Piece::BlackRook as usize].0
+        } else {
+            self.bitboards[Piece::WhiteQueen as usize].0
+                | self.bitboards[Piece::WhiteRook as usize].0
+        };
+        let bishops_queens = if side == Side::WHITE {
+            self.bitboards[Piece::BlackQueen as usize].0
+                | self.bitboards[Piece::BlackBishop as usize].0
+        } else {
+            self.bitboards[Piece::WhiteQueen as usize].0
+                | self.bitboards[Piece::WhiteBishop as usize].0
+        };
+
+        let occupancy_all = self.occupancies[Side::WHITE].0 | self.occupancies[Side::BLACK].0;
+
+        let mut knight_bishop_count = 0;
+        let king_attacks;
+        unsafe {
+            king_attacks = KING_ATTACKS[square];
+            if side == 0 {
+                if king_attacks & self.bitboards[Piece::BlackKing as usize].0 != 0 {
+                    attackers |= 1 << 7;
+                }
+                if get_queen_attacks(square, Bitboard(occupancy_all & !bishops_rooks)) & self.bitboards[Piece::BlackQueen as usize].0 != 0 {
+                    attackers |= 1 << 6;
+                }
+                let rook_attacks = get_rook_attacks(square, Bitboard(occupancy_all & !rooks_queens));
+                if rook_attacks & self.bitboards[Piece::BlackRook as usize].0 != 0 {
+                    if (rook_attacks & self.bitboards[Piece::BlackRook as usize].0).count_ones() == 1 {
+                        attackers |= 1 << 4;
+                    } else {
+                        attackers |= 3 << 4;
+                    }
+                }
+                let knight_attacks = KNIGHT_ATTACKS[square];
+                if knight_attacks & self.bitboards[Piece::BlackKnight as usize].0 != 0 {
+                    knight_bishop_count += (knight_attacks & self.bitboards[Piece::BlackKnight as usize].0).count_ones();
+                }
+                let bishop_attacks = get_bishop_attacks(square, Bitboard(occupancy_all & !bishops_queens));
+                if bishop_attacks & self.bitboards[Piece::BlackBishop as usize].0 != 0 {
+                    knight_bishop_count += (bishop_attacks & self.bitboards[Piece::BlackBishop as usize].0).count_ones();
+                }
+            } else {
+                if king_attacks & self.bitboards[Piece::WhiteKing as usize].0 != 0 {
+                    attackers |= 1 << 7;
+                }
+                if get_queen_attacks(square, Bitboard(occupancy_all & !bishops_rooks)) & self.bitboards[Piece::WhiteQueen as usize].0 != 0 {
+                    attackers |= 1 << 6;
+                }
+                let rook_attacks = get_rook_attacks(square, Bitboard(occupancy_all & !rooks_queens));
+                if rook_attacks & self.bitboards[Piece::WhiteRook as usize].0 != 0 {
+                    if (rook_attacks & self.bitboards[Piece::WhiteRook as usize].0).count_ones() == 1 {
+                        attackers |= 1 << 4;
+                    } else {
+                        attackers |= 3 << 4;
+                    }
+                }
+                let knight_attacks = KNIGHT_ATTACKS[square];
+                if knight_attacks & self.bitboards[Piece::WhiteKnight as usize].0 != 0 {
+                    knight_bishop_count += (knight_attacks & self.bitboards[Piece::WhiteKnight as usize].0).count_ones();
+                }
+                let bishop_attacks = get_bishop_attacks(square, Bitboard(occupancy_all & !bishops_queens));
+                if bishop_attacks & self.bitboards[Piece::WhiteBishop as usize].0 != 0 {
+                    knight_bishop_count += (bishop_attacks & self.bitboards[Piece::WhiteBishop as usize].0).count_ones();
+                }
+            }
+        }
+
+        if knight_bishop_count != 0 {
+            if knight_bishop_count == 1 {
+                attackers |= 1 << 1;
+            } else if knight_bishop_count == 2 {
+                attackers |= 3 << 1;
+            } else {
+                attackers |= 7 << 1;
+            }
+        }
+
+        let sq_bb = SHIFT_LOCATIONS[square];
+        let enemy_pawns = if side == Side::WHITE {
+            self.bitboards[Piece::BlackPawn as usize].0 & king_attacks
+        } else {
+            self.bitboards[Piece::WhitePawn as usize].0 & king_attacks
+        };
+        let attacking_pawns = if side == Side::WHITE {
+            (enemy_pawns >> 7 | enemy_pawns >> 9) & sq_bb
+        } else {
+            (enemy_pawns << 7 | enemy_pawns << 9) & sq_bb
+        };
+        if attacking_pawns != 0 {
+            attackers |= 1;
+        }
+
+        return attackers;
     }
 
     pub fn show_attacked(&self, side: usize) {
