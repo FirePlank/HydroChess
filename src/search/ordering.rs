@@ -28,6 +28,25 @@ pub const MVV_LVA: [[u16;6];6] = [
 ];
 
 impl Searcher {
+    pub fn sort_next_move(&self, moves: &mut [u32; 256], move_scores: &mut [u32; 256], start_index: usize, moves_count: usize) -> u32 {
+        let mut best_score = move_scores[start_index];
+        let mut best_index = start_index;
+    
+        for index in (start_index + 1)..moves_count {
+            if move_scores[index] > best_score {
+                best_score = move_scores[index];
+                best_index = index;
+            }
+        }
+    
+        if best_index != start_index {
+            moves.swap(start_index, best_index);
+            move_scores.swap(start_index, best_index);
+        }
+    
+        return moves[start_index];
+    }
+
     pub fn sort_moves(&mut self, position: &Position, move_list: MoveList) -> [(u32, u32); 356] {
         // sort moves
         let mut move_scores: [(u32, u32);356] = [(0, 0);356];
@@ -41,6 +60,22 @@ impl Searcher {
         return move_scores;
     }
 
+    // pub fn score_move_q(&mut self, position: &Position, move_: u32) -> u32 {
+    //     if enpassant(move_) != 0 {
+    //         return 0;
+    //     }
+    //     let promoted = promoted(move_);
+    //     if promoted != 0 {
+    //         return PIECE_VALUE[(promoted%6) as usize] as u32;
+    //     }
+    //     let target = target(move_);
+    //     let captured = position.get_piece(target(move_));
+    //     let attackers = position.get_attackers(target as usize, position.side);
+    //     let defenders = position.get_attackers(target as usize, position.side^1);
+
+    //     return get_see(get_piece(move_) % 6, captured as u8, attackers, defenders) as u32;
+    // }
+    
     pub fn score_move(&mut self, position: &Position, move_: u32) -> u32 {
         // if move scoring is allowed
         if self.score_pv {

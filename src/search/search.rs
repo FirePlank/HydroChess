@@ -4,6 +4,7 @@ use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 use crate::evaluation::*;
 use crate::cache::*;
+use std::mem::MaybeUninit;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::thread;
@@ -242,16 +243,22 @@ impl Searcher {
 
         // create move list
         let mut move_list = MoveList::new();
+        // create score moves list
+        let mut move_scores: [u32; 256] = unsafe { MaybeUninit::uninit().assume_init() };
         // generate captures
         position.generate_pseudo_captures(&mut move_list);
         let counted = move_list.count;
+
+        // assing score moves
+        self.assign_move_scores(position, move_list.moves, &mut move_scores, counted as usize);
+
         // sort moves
-        let sorted = self.sort_moves(&position, move_list);
+        // let sorted = self.sort_moves(&position, move_list);
 
         // loop over captures within move list
         for count in 0..counted {
             // get capture move                              
-            let move_ = sorted[count as usize].1;
+            let move_ = self.sort_next_move(&mut move_list.moves, &mut move_scores, count as usize, counted as usize);
 
             if !position.make(move_) {
                 position.unmake(move_);
@@ -420,6 +427,8 @@ impl Searcher {
         let mut legal_moves = 0;
         // create move list
         let mut move_list = MoveList::new();
+        // create score moves list
+        let mut move_scores: [u32; 256] = unsafe { MaybeUninit::uninit().assume_init() };
         // generate moves
         position.generate_pseudo_moves(&mut move_list);
         let counted = move_list.count;
@@ -429,8 +438,11 @@ impl Searcher {
             // enable PV move scoring
             self.enable_pv_scoring(&move_list);
         }
-        // sort moves
-        let sorted = self.sort_moves(&position, move_list);
+
+        // assign move scores
+        self.assign_move_scores(position, move_list.moves, &mut move_scores, counted as usize);
+        // // sort moves
+        // let sorted = self.sort_moves(&position, move_list);
 
         // number of moves searched in a move list
         let mut moves_searched = 0;
@@ -441,7 +453,7 @@ impl Searcher {
         // loop over moves within move list
         for count in 0..counted {
             // get move                               
-            let move_ = sorted[count as usize].1;
+            let move_ = self.sort_next_move(&mut move_list.moves, &mut move_scores, count as usize, counted as usize);
 
             let is_quiet = capture(move_) == 0;
             if is_quiet && skip_quiet {
@@ -558,5 +570,12 @@ impl Searcher {
         unsafe { TT.write(position.hash, alpha, best_move.value, depth, self.ply, hash_flag); }
         // node (move) fails low
         return alpha;
+    }
+
+    fn assign_move_scores(&mut self, position: &Position, moves: [u32; 256], move_scores: &mut [u32; 256], moves_count: usize) {
+        for move_index in 0..moves_count {
+            let r#move = moves[move_index];
+            move_scores[move_index] = self.score_move(position, r#move);
+        }
     }
 }
