@@ -180,9 +180,9 @@ impl Position {
             searcher.playtime /= searcher.movestogo;
 
             // calculate the stop time based on the available moves and the phase of the game
-            let mut move_list = MoveList::new();
-            self.generate_pseudo_moves(&mut move_list);
-            searcher.stoptime = searcher.time + (searcher.playtime as f32*factor*(1.0+(move_list.count as f32/55.5))) as u128 + (searcher.inc as f32*factor) as u128;
+            // let mut move_list = MoveList::new();
+            // self.generate_pseudo_moves(&mut move_list);
+            searcher.stoptime = searcher.time + searcher.playtime as u128 + searcher.inc as u128;
         }
         
         if depth == 0 { depth = MAX_PLY as u8; }
