@@ -10,24 +10,27 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::thread;
 
 pub const MAX_PLY: usize = 127;
-pub const MATE_VALUE: i16 = i16::MAX-150;
-pub const MATE_SCORE: i16 = i16::MAX-300;
-pub const INFINITY: i16 = i16::MAX;
+pub const INFINITY: i16 = 32000;
+pub const MATE_VALUE: i16 = INFINITY-150;
+pub const MATE_SCORE: i16 = INFINITY-300;
 pub const NO_ENTRY: i16 = INFINITY-500;
+pub const TIME_UP: i16 = 32000+500;
 
 pub static mut OPTIONS: SearchOptions = SearchOptions::default();
 // stop search if time is up
 pub static mut STOP: bool = false;
 
 pub struct SearchOptions {
-    pub threads_allowed: bool,
+    pub threads_automatic: bool,
+    pub threads: u16,
     pub hash_size: u16
 }
 impl SearchOptions {
     pub const fn default() -> SearchOptions {
         SearchOptions {
-            threads_allowed: true,
+            threads_automatic: true,
             hash_size: 32,
+            threads: 1
         }
     }
 }
@@ -101,10 +104,11 @@ impl Searcher {
     //     }
     // }
 
-    pub fn communicate(&mut self) {
-        if self.timeset && SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() > self.stoptime {
-            unsafe { STOP = true; }
+    pub fn stop_search(&mut self) -> bool {
+        if unsafe { STOP } || (self.timeset && SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() > self.stoptime) {
+            return true;
         }
+        return false;
     }
 
     pub fn search_position(&'static mut self, position: &'static mut Position, depth: u8) {
@@ -112,15 +116,18 @@ impl Searcher {
         unsafe { STOP = false; }
 
         for current_depth in 1..depth+1 {
-            // return 0 if time is up
-            if unsafe { STOP } { break; }
+            // break if time is up
+            if self.stop_search() {
+                break;
+            }
             // enable follow PV flag
             self.follow_pv = true;
 
             // SMP search
             let mut score = -INFINITY;
+            let threads = unsafe { OPTIONS.threads };
             // multi-threaded search if allowed
-                if unsafe { OPTIONS.threads_allowed } && current_depth > 6 {
+            if unsafe { OPTIONS.threads_automatic } && current_depth > 6 {
                 let mut move_list = MoveList::new();
                 position.generate_pseudo_moves(&mut move_list);
                 let mut threads = Vec::with_capacity(move_list.count as usize);
@@ -145,9 +152,37 @@ impl Searcher {
                         self.pv_table[0] = item.2;
                     }
                 }
+            } else if threads != 1 {
+                let mut threader = Vec::with_capacity(threads as usize);
+                let mut handles = Vec::with_capacity(threads as usize);
+                for _ in 0..threads as usize {
+                    let mut pos = position.clone();
+                    let mut searcher = self.clone();
+                    let handle = thread::spawn(move || {
+                        let scorer: i16 = searcher.negamax(&mut pos, -INFINITY, INFINITY, current_depth-1, false);
+                        return (scorer, searcher.pv_length[0], searcher.pv_table[0], searcher.nodes);
+                    });
+                    handles.push(handle);
+                }
+                while !handles.is_empty() {
+                    threader.push(handles.pop().expect("error while popping").join().unwrap());
+                }
+                for item in threader.iter() {
+                    if item.0 > score {
+                        self.nodes = item.3;
+                        score = item.0;
+                        self.pv_length[0] = item.1;
+                        self.pv_table[0] = item.2;
+                    }
+                }
             } else {
                 // find best move within a given position
                 score = self.negamax(position, -INFINITY, INFINITY, current_depth, true);
+            }
+
+            // break if time is up
+            if self.stop_search() {
+                break;
             }
 
             // if score <= alpha || score >= beta {
@@ -215,11 +250,6 @@ impl Searcher {
     }
 
     pub fn quiescence(&mut self, position: &mut Position, mut alpha: i16, beta: i16) -> i16 {
-        // every 2047 nodes, check if time is up
-        if self.nodes & 2047 == 0 {
-            self.communicate();
-        }
-        
         // increment nodes
         self.nodes += 1;
 
@@ -239,7 +269,11 @@ impl Searcher {
         if self.ply >= MAX_PLY as u8 {
             return eval;
         }
-        
+
+        // check if time is up
+        if self.stop_search() {
+            return TIME_UP;
+        }
 
         // create move list
         let mut move_list = MoveList::new();
@@ -260,6 +294,11 @@ impl Searcher {
             // get capture move                              
             let move_ = self.sort_next_move(&mut move_list.moves, &mut move_scores, count as usize, counted as usize);
 
+            // check if losing too much material
+            if move_scores[count as usize] as i32 - 8000 < 0 {
+                break;
+            }
+
             if !position.make(move_) {
                 position.unmake(move_);
                 continue;
@@ -273,8 +312,12 @@ impl Searcher {
             position.unmake(move_);
             // decrement ply
             self.ply -= 1;
+
             // check if time is up
-            if unsafe { STOP } { return NO_ENTRY; }
+            if self.stop_search() {
+                return TIME_UP;
+            }
+
             // fail-hard beta cutoff
             if score > alpha {
                 // PV node (move)
@@ -356,8 +399,8 @@ impl Searcher {
         }
         
         // every 2047 nodes
-        if self.nodes & 2047 == 0 {
-            self.communicate();
+        if self.stop_search() {
+            return 0;
         }
 
         // static evaluation
@@ -422,6 +465,11 @@ impl Searcher {
         }
         // nice name btw lol
         let fp_margin = eval + 97 * depth as i16;
+
+        // check if time is up
+        if self.stop_search() {
+            return TIME_UP;
+        }
 
         // legal moves
         let mut legal_moves = 0;
@@ -505,10 +553,11 @@ impl Searcher {
             position.unmake(move_);
             // decrement ply
             self.ply -= 1;
-            // decrement repetition index
-            // unsafe { REP_INDEX = REP_INDEX.wrapping_sub(1); }
-            // return 0 if time is up
-            if unsafe { STOP } { return 0; }
+
+            if self.stop_search() {
+                return TIME_UP;
+            }
+
             // increment the number of moves searched so far
             moves_searched += 1;
 

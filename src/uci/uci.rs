@@ -95,15 +95,7 @@ impl Position {
         let mut split_cmd = trimmed.split_whitespace();
         split_cmd.next().unwrap_or_else(error);
 
-        let mut searcher: Searcher = Searcher::new();
-        let phase = self.phase();
-        let addon = if phase as i32 - 22 > 0 { phase - 6 } else {
-            if phase as i32 - 15 > 0 { phase - 2 } else { 
-                if phase as i32 - 7 > 0 { phase } else { 0 }
-            }
-        };
-        let sub = if phase < 10 { 2 } else { 0 };
-        let factor = 1.0-(((phase as f32-addon as f32)+sub as f32)/24f32);
+        let mut searcher: Searcher = Searcher::new();;
         unsafe {
         searcher.time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
         loop {
@@ -186,7 +178,7 @@ impl Position {
         }
         
         if depth == 0 { depth = MAX_PLY as u8; }
-        println!("info string time: {} start: {} stop: {} depth: {} timeset: {} factor: {}", searcher.playtime, searcher.time, searcher.stoptime, depth, searcher.timeset, factor);
+        println!("info string time: {} start: {} stop: {} depth: {} timeset: {}", searcher.playtime, searcher.time, searcher.stoptime, depth, searcher.timeset);
 
         // GARGAGE CODE ALERT!!! If I don't copy the searcher it wont reset the values from the previous search due to it being static.
         // If you have a better solution to get the multi-threaded search working without having to use static, please let me know.
@@ -277,16 +269,30 @@ pub fn parse_option(cmd: &str) {
     if split_cmd.next().unwrap_or_else(silent) != "name" { return; }
 
     let name = split_cmd.next().unwrap_or_else(error);
-    if name == "use" {
+    if name == "automatic" {
         if split_cmd.next().unwrap_or_else(error) == "threads" {
             if split_cmd.next().unwrap_or_else(error) == "value" {
                 let response = split_cmd.next().unwrap_or_else(error);
                 if response == "true" {
-                    unsafe { OPTIONS.threads_allowed = true; }
+                    unsafe { OPTIONS.threads_automatic = true; }
                 } else if response == "false" {
-                    unsafe { OPTIONS.threads_allowed = false; }
+                    unsafe { OPTIONS.threads_automatic = false; }
                 } else {
                     println!("info string Invalid value given, please give either true or false");
+                }
+            }
+        }
+    } else if name == "threads" {
+        if split_cmd.next().unwrap_or_else(error) == "value" {
+            let value = split_cmd.next().unwrap_or_else(silent).parse::<u16>().unwrap_or_else(|error| {
+                println!("info string Invalid value for option given: {}", error);
+                return 0;
+            });
+            if value < 1 {
+                println!("info string Invalid value given, please give a value greater than 0");
+            } else {
+                unsafe { 
+                    OPTIONS.threads = value;
                 }
             }
         }

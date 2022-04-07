@@ -37,7 +37,8 @@ pub fn main_loop() {
             "uci" => {
                 println!("id name {}", NAME);
                 println!("id author {}", AUTHOR);
-                println!("\noption name Use Threads type check default true");
+                println!("\noption name Threads type spin default 1 min 1 max 65535");
+                println!("option name Automatic Threads type check default true");
                 println!("option name Hash type spin default 32 min 1 max 65535");
                 println!("option name Clear Hash type button");
                 println!("uciok");
