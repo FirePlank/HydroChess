@@ -1,5 +1,4 @@
 use crate::board::position::*;
-use crate::board::zobrist::*;
 use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 use crate::evaluation::*;
@@ -428,7 +427,7 @@ impl Searcher {
 
             // null move pruning
             if null_move {
-                if self.ply != 0 && depth > 2 && eval >= beta {
+                if self.do_nmp(position, depth, eval, beta) {
                     // increment ply
                     self.ply += 1;
                     // make null move
@@ -626,5 +625,10 @@ impl Searcher {
             let r#move = moves[move_index];
             move_scores[move_index] = self.score_move(position, r#move);
         }
+    }
+
+    fn do_nmp(&self, position: &Position, depth: u8, eval: i16, beta: i16) -> bool {
+        let has_non_pawn = (position.bitboards[0].0 | position.bitboards[Piece::WhiteKing as usize].0 | position.bitboards[Piece::BlackPawn as usize].0 | position.bitboards[Piece::BlackKing as usize].0) != (position.occupancies[0].0 | position.occupancies[1].0);
+        return self.ply != 0 && depth > 5 && eval >= beta && has_non_pawn;
     }
 }
