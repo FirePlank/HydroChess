@@ -1,6 +1,6 @@
 # HydroChess
 
-HydroChess is a chess engine written in Rust that is capable of beating most human players. As the developer of HydroChess, you have created a formidable tool for playing and analyzing chess.
+HydroChess is a chess engine written in Rust that is capable of beating most human players. As the developer of HydroChess, I have created a formidable tool for playing and analyzing chess.
 
 ## Installation
 
