@@ -62,6 +62,11 @@ impl Bitboard {
             return -1;
         }
     }
+
+    // check if bitboard is empty
+    pub fn is_empty(&self) -> bool {
+        return self.0 == 0;
+    }
 }
 
 pub fn set_occupancy(index: i32, bits_in_mask: u32, mut attack_mask: Bitboard) -> Bitboard {

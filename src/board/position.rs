@@ -4,6 +4,7 @@ use super::attacks::*;
 use crate::r#move::*;
 use crate::evaluation::*;
 use crate::board::*;
+use crate::search::OPTIONS;
 
 
 #[allow(dead_code)]
@@ -88,6 +89,13 @@ pub enum PieceType {
     QUEEN,
     KING,
 }
+
+#[derive(PartialEq)]
+pub enum Variant {
+    Standard,
+    Suicide
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Side;
 impl Side {
@@ -611,12 +619,18 @@ impl Position {
 
         if self.side == 0 {
             self.fullmove += 1;
+            if unsafe { OPTIONS.variant == Variant::Suicide} {
+                return true;
+            }
             // check if the move is illegal
             if self.is_attacked(self.bitboards[Piece::BlackKing as usize].ls1b() as usize, 0) {
                 // move is illegal
                 return false;
             }
         } else {
+            if unsafe { OPTIONS.variant == Variant::Suicide} {
+                return true;
+            }
             // check if the move is illegal
             if self.is_attacked(self.bitboards[Piece::WhiteKing as usize].ls1b() as usize, 1) {
                 // move is illegal

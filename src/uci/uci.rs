@@ -1,21 +1,27 @@
+use crate::variants::antichess;
 use crate::{r#move::movegen::*, board::position};
 use crate::board::position::*;
 use crate::cache::*;
 use crate::r#move::encode::*;
 use crate::search::*;
+use crate::interface::SUPPORTED_VARIANTS;
 
 use std::time::{UNIX_EPOCH, SystemTime};
 
 impl Position {
     // parse user/GUI move string input (eg. "e2e4")
-    pub fn parse_uci(&self, move_string: &str) -> u32 {
+    pub fn parse_uci(&mut self, move_string: &str) -> u32 {
         // make iterator of lowercased str
         let move_parse = move_string.to_lowercase();
         let mut move_parse = move_parse.chars();
         // create move list
         let mut move_list = MoveList::new();
-        // generate pseudo-legal moves
-        self.generate_pseudo_moves(&mut move_list);
+        if unsafe { OPTIONS.variant == Variant::Suicide } {
+            move_list = antichess::generate_moves(self);
+        } else { 
+            // generate pseudo-legal moves
+            self.generate_pseudo_moves(&mut move_list);
+        }
 
         // parse source square
         let source_square = *ASCII_TO_SQUARE.get((move_parse.next().unwrap_or('.').to_string()+&move_parse.next().unwrap_or('.').to_string()).as_str()).unwrap_or_else( || {
@@ -48,7 +54,7 @@ impl Position {
                     // check if promotion piece is correct
                     if promotion_string == '.' { 
                         println!("info string No promotion piece given");
-                        return 0; 
+                        return 0;
                     }
                     // parse promotion piece and check move string for each promotion type
 
@@ -59,7 +65,9 @@ impl Position {
                     // promoted to bishop
                     ((promoted_piece == Piece::WhiteBishop as u8 || promoted_piece == Piece::BlackBishop as u8) && promotion_string == 'b') ||
                     // promoted to knight
-                    ((promoted_piece == Piece::WhiteKnight as u8 || promoted_piece == Piece::BlackKnight as u8) && promotion_string == 'n') {
+                    ((promoted_piece == Piece::WhiteKnight as u8 || promoted_piece == Piece::BlackKnight as u8) && promotion_string == 'n') ||
+                    // promoted to king (variants only)
+                    ((promoted_piece == Piece::WhiteKing as u8 || promoted_piece == Piece::BlackKing as u8) && promotion_string == 'k') {
                         // return move
                         return move_;
                     }
@@ -180,8 +188,6 @@ impl Position {
         if depth == 0 { depth = MAX_PLY as u8; }
         println!("info string time: {} start: {} stop: {} depth: {} timeset: {}", searcher.playtime, searcher.time, searcher.stoptime, depth, searcher.timeset);
 
-        // GARGAGE CODE ALERT!!! If I don't copy the searcher it wont reset the values from the previous search due to it being static.
-        // If you have a better solution to get the multi-threaded search working without having to use static, please let me know.
         static mut search: Searcher = Searcher::new();
         search = searcher.clone();
         static mut pos: Position = Position::empty();
@@ -314,6 +320,19 @@ pub fn parse_option(cmd: &str) {
     } else if name == "clear" {
         if split_cmd.next().unwrap_or_else(error) == "hash" {
             unsafe { TT.reset(); }
+        }
+    } else if name == "uci_variant" {
+        if split_cmd.next().unwrap_or_else(error) == "value" {
+            // check if variant in SUPPORTED_VARIANTS list
+            let variant = split_cmd.next().unwrap_or_else(error);
+            if SUPPORTED_VARIANTS.contains(&variant) {
+                match variant {
+                    "antichess" | "suicide" | "giveaway" => unsafe { OPTIONS.variant = Variant::Suicide },
+                    _ => (),
+                }
+            } else {
+                println!("info string Unknown variant given");
+            }
         }
     } else {
         println!("info string Unknown option given");

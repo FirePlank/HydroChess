@@ -1,3 +1,4 @@
+use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
 use std::thread;
@@ -7,10 +8,10 @@ use crate::board::position::*;
 use crate::search::*;
 // use crate::r#move::encode::*;
 use crate::uci::*;
-use crate::cache::*;
 
 const NAME: &str = "HydroChess";
 const AUTHOR: &str = "FirePlank";
+pub const SUPPORTED_VARIANTS: [&str; 4] = ["standard", "suicide", "giveaway", "antichess"];
 
 // main UCI loop
 pub fn main_loop() {
@@ -41,6 +42,7 @@ pub fn main_loop() {
                 println!("option name Automatic Threads type check default true");
                 println!("option name Hash type spin default 32 min 1 max 65535");
                 println!("option name Clear Hash type button");
+                println!("option name UCI_Variant type combo default standard var {}", SUPPORTED_VARIANTS.join(" var "));
                 println!("uciok");
             },
             "setoption" => parse_option(&cmd),

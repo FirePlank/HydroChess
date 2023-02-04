@@ -3,6 +3,7 @@ use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 use crate::evaluation::*;
 use crate::cache::*;
+use crate::variants::antichess;
 use std::mem::MaybeUninit;
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -22,14 +23,17 @@ pub static mut STOP: bool = false;
 pub struct SearchOptions {
     pub threads_automatic: bool,
     pub threads: u16,
-    pub hash_size: u16
+    pub hash_size: u16,
+    pub variant: Variant
 }
+
 impl SearchOptions {
     pub const fn default() -> SearchOptions {
         SearchOptions {
             threads_automatic: true,
             hash_size: 32,
-            threads: 1
+            threads: 1,
+            variant: Variant::Standard
         }
     }
 }
@@ -125,6 +129,16 @@ impl Searcher {
             // SMP search
             let mut score = -INFINITY;
             let threads = unsafe { OPTIONS.threads };
+            // let variant = unsafe { &OPTIONS.variant };
+
+            // check for variant
+            // if variant != &Variant::Standard {
+            //     // if variant is antichess
+            //     if variant == &Variant::Suicide {
+            //         score = antichess::negamax(position, -INFINITY, INFINITY, current_depth);
+            //     }
+            // }
+            // setoption name uci_variant value giveaway
             // multi-threaded search if allowed
             if unsafe { OPTIONS.threads_automatic } && current_depth > 6 {
                 let mut move_list = MoveList::new();
@@ -193,17 +207,17 @@ impl Searcher {
             // set up the window for the next iteration
             // alpha = score - 50;
             // beta = score + 50;
-            let mate;
-
+            // let mate;
+            
             if score > -MATE_VALUE && score < -MATE_SCORE {
                 print!("info score mate {} depth {} nodes {} time {} pv ", -(self.pv_length[0] as i16)/2-1, current_depth, self.nodes, SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis()-self.time);
-                mate = true;
+                // mate = true;
             } else if score > MATE_SCORE && score < MATE_VALUE {
                 print!("info score mate {} depth {} nodes {} time {} pv ", self.pv_length[0]/2+1, current_depth, self.nodes, SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis()-self.time);
-                mate = true;
+                // mate = true;
             } else {
                 print!("info score cp {} depth {} nodes {} time {} pv ", score, current_depth, self.nodes, SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis()-self.time);
-                mate = false;
+                // mate = false;
             }
             // loop over the moves within a PV lone
             for count in 0..self.pv_length[0] {
@@ -212,11 +226,11 @@ impl Searcher {
                 print!(" ");
             }
             println!();
-            
+
             // if forced mate exists there is no need to search further
-            if mate {
-                break;
-            }
+            // if mate {
+            //     break;
+            // }
         }
 
         // bestmove
@@ -253,7 +267,12 @@ impl Searcher {
         self.nodes += 1;
 
         // evaluate position
-        let eval = evaluate(position);
+        let eval: i16;
+        if unsafe { OPTIONS.variant == Variant::Suicide } {
+            eval = antichess::evaluate(position);
+        } else {
+            eval = evaluate(position);
+        }
 
         // fail-hard beta cutoff
         if eval >= beta {
@@ -278,8 +297,13 @@ impl Searcher {
         let mut move_list = MoveList::new();
         // create score moves list
         let mut move_scores: [u32; 256] = unsafe { MaybeUninit::uninit().assume_init() };
-        // generate captures
-        position.generate_pseudo_captures(&mut move_list);
+        if unsafe { OPTIONS.variant == Variant::Suicide } {
+            // generate antichess moves
+            move_list = antichess::generate_captures(position);
+        } else {
+            // generate moves
+            position.generate_pseudo_captures(&mut move_list);
+        }
         let counted = move_list.count;
 
         // assing score moves
@@ -344,7 +368,11 @@ impl Searcher {
 
         // too deep, return eval
         if self.ply >= MAX_PLY as u8 {
-            return evaluate(position);
+            return if unsafe { OPTIONS.variant == Variant::Suicide } {
+                antichess::evaluate(position)
+            } else {
+                evaluate(position)
+            };
         }
 
         // fifty-move rule
@@ -379,9 +407,11 @@ impl Searcher {
         }
 
         // is king in check
-        let in_check = position.is_attacked(if position.side == 0 { position.bitboards[Piece::WhiteKing as usize].ls1b() as usize } else {
-            position.bitboards[Piece::BlackKing as usize].ls1b() as usize
-        }, position.side^1);
+        let in_check = if unsafe { OPTIONS.variant == Variant::Suicide } { false } else {
+            position.is_attacked(if position.side == 0 { position.bitboards[Piece::WhiteKing as usize].ls1b() as usize } else {
+                position.bitboards[Piece::BlackKing as usize].ls1b() as usize
+            }, position.side^1)
+        };
 
         // increase search depth if the king has been exposed to a check
         if in_check {
@@ -403,7 +433,11 @@ impl Searcher {
         }
 
         // static evaluation
-        let eval = evaluate(position);
+        let eval = if unsafe { OPTIONS.variant == Variant::Suicide } { 
+            antichess::evaluate(position)
+        } else {
+            evaluate(position)
+        };
 
         if !in_check && !pv_node {
             // evaluation pruning
@@ -472,14 +506,18 @@ impl Searcher {
 
         // legal moves
         let mut legal_moves = 0;
-        // create move list
         let mut move_list = MoveList::new();
         // create score moves list
         let mut move_scores: [u32; 256] = unsafe { MaybeUninit::uninit().assume_init() };
-        // generate moves
-        position.generate_pseudo_moves(&mut move_list);
-        let counted = move_list.count;
 
+        if unsafe { OPTIONS.variant == Variant::Suicide } {
+            // generate antichess moves
+            move_list = antichess::generate_moves(position);
+        } else {
+            // generate moves
+            position.generate_pseudo_moves(&mut move_list);
+        }
+        let counted = move_list.count;
         // if we are now following PV line
         if self.follow_pv {
             // enable PV move scoring
@@ -605,13 +643,20 @@ impl Searcher {
             }
         }
         // check if checkmate or stalemate
-        if legal_moves == 0 {
-            if in_check {
-                // checkmate
-                return -MATE_VALUE+self.ply as i16;
-            } else {
-                // stalemate
-                return 0;
+        if unsafe { OPTIONS.variant == Variant::Suicide } {
+            // if you have no pieces left or you stalemate, you win
+            if legal_moves == 0 {
+                return MATE_VALUE-self.ply as i16;
+            }
+        } else {
+            if legal_moves == 0 {
+                if in_check {
+                    // checkmate
+                    return -MATE_VALUE+self.ply as i16;
+                } else {
+                    // stalemate
+                    return 0;
+                }
             }
         }
         // store hash entry with the score equal to alpha

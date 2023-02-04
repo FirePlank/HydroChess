@@ -25,7 +25,7 @@ pub struct MoveList {
 */
 
 // promoted pieces in string format, easily indexable with `Piece` enum as usize
-pub const PROMOTED_PIECES: [&str; 11] = ["", "n", "b", "r", "q", "", "", "n", "b", "r", "q"];
+pub const PROMOTED_PIECES: [&str; 12] = ["", "n", "b", "r", "q", "k", "", "n", "b", "r", "q", "k"];
 
 impl Move {
     pub fn show(&self) {
