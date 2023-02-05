@@ -11,7 +11,7 @@ use crate::uci::*;
 
 const NAME: &str = "HydroChess";
 const AUTHOR: &str = "FirePlank";
-pub const SUPPORTED_VARIANTS: [&str; 4] = ["standard", "suicide", "giveaway", "antichess"];
+pub const SUPPORTED_VARIANTS: [&str; 6] = ["standard", "suicide", "giveaway", "antichess", "3check", "three-check"];
 
 // main UCI loop
 pub fn main_loop() {
@@ -29,6 +29,14 @@ pub fn main_loop() {
             println!("info string failed to take UCI input: {}", error);
             return 0;
         });
+
+        // append cmd to debug.txt on newline
+        // let mut file = OpenOptions::new()
+        //     .append(true)
+        //     .open("debug.txt")
+        //     .unwrap();
+
+        // file.write_all(cmd.as_bytes()).expect("write failed");
 
         // handle all the UCI commands
         match cmd.trim().to_lowercase().split_whitespace().next().unwrap_or_else(|| {

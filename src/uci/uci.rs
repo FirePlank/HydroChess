@@ -208,6 +208,60 @@ pub fn parse_position(cmd: &str) -> Position {
     };
     // init position
     let mut position = Position::empty();
+    
+    // if 3check is enabled, split and remove + from command and parse it
+    let mut cmd = cmd.to_string();
+    let mut checks: [usize; 2];
+    if unsafe { OPTIONS.variant == Variant::ThreeCheck } {
+        // get amount of + signs in command
+        let count = cmd.matches('+').count();
+        // if there are more than 1 + signs
+        if count == 1 {
+            // checks are right before and after the first + sign
+            let index = cmd.find('+').unwrap_or_else(|| {
+                println!("info string Invalid uci command given");
+                return 0;
+            });
+            checks = [cmd[index-1..index].parse::<usize>().unwrap_or_else(|error| {
+                println!("info string Invalid parameter value given: {}", error);
+                return 0;
+            }), cmd[index+1..index+2].parse::<usize>().unwrap_or_else(|error| {
+                println!("info string Invalid parameter value given: {}", error);
+                return 0;
+            })];
+
+            for i in 0..2 {
+                checks[i] = 3 - checks[i];
+            }
+
+            cmd = cmd.replace(&cmd[index-1..index+3], "");
+        } else { 
+            // get index of first + in command
+            let index = cmd.find('+').unwrap_or_else(|| {
+                println!("info string Invalid uci command given");
+                return 0;
+            });
+            // get next 3 characters after +
+            let check = &cmd[index+1..index+4];
+            // parse checks, numbers are right before and after the + sign
+            checks = [check[2..3].parse::<usize>().unwrap_or_else(|error| {
+                println!("info string Invalid parameter value given: {}", error);
+                return 0;
+            }), check[0..1].parse::<usize>().unwrap_or_else(|error| {
+                println!("info string Invalid parameter value given: {}", error);
+                return 0;
+            })];
+
+            // remove that part from command starting from + and ending after 3rd character
+            cmd = cmd.replace(&format!("+{}", check), "");
+        }
+    } else {
+        checks = [0, 0];
+    }
+
+    // println!("info string cmd: {}", cmd);
+    // println!("info string checks: {} {}", checks[0], checks[1]);
+
     // split command by whitespace
     let mut split_cmd = cmd.trim().split_whitespace();
     split_cmd.next().unwrap_or_else(error);
@@ -232,6 +286,7 @@ pub fn parse_position(cmd: &str) -> Position {
         }
         // init board from fen
         position = Position::from_fen(&fen);
+        position.checks = checks;
 
     } else if next != "." { println!("info string Invalid uci command given"); }
 
@@ -328,6 +383,7 @@ pub fn parse_option(cmd: &str) {
             if SUPPORTED_VARIANTS.contains(&variant) {
                 match variant {
                     "antichess" | "suicide" | "giveaway" => unsafe { OPTIONS.variant = Variant::Suicide },
+                    "3check" | "three-check" => unsafe { OPTIONS.variant = Variant::ThreeCheck }
                     _ => (),
                 }
             } else {

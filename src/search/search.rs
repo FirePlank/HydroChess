@@ -4,6 +4,7 @@ use crate::r#move::movegen::*;
 use crate::evaluation::*;
 use crate::cache::*;
 use crate::variants::antichess;
+use crate::variants::threecheck;
 use std::mem::MaybeUninit;
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -362,16 +363,18 @@ impl Searcher {
 
         let mut score: i16;
         let is_root = self.ply == 0;
+        let variant = unsafe { &OPTIONS.variant };
 
         // increment nodes counter
         self.nodes += 1;
 
         // too deep, return eval
         if self.ply >= MAX_PLY as u8 {
-            return if unsafe { OPTIONS.variant == Variant::Suicide } {
-                antichess::evaluate(position)
-            } else {
-                evaluate(position)
+            return match variant {
+                Variant::Standard => evaluate(position),
+                Variant::Suicide => antichess::evaluate(position),
+                Variant::Chess960 => evaluate(position),
+                Variant::ThreeCheck => threecheck::evaluate(position)
             };
         }
 
@@ -433,10 +436,11 @@ impl Searcher {
         }
 
         // static evaluation
-        let eval = if unsafe { OPTIONS.variant == Variant::Suicide } { 
-            antichess::evaluate(position)
-        } else {
-            evaluate(position)
+        let eval = match variant {
+            Variant::Standard => evaluate(position),
+            Variant::Suicide => antichess::evaluate(position),
+            Variant::Chess960 => evaluate(position),
+            Variant::ThreeCheck => threecheck::evaluate(position)
         };
 
         if !in_check && !pv_node {
@@ -643,7 +647,7 @@ impl Searcher {
             }
         }
         // check if checkmate or stalemate
-        if unsafe { OPTIONS.variant == Variant::Suicide } {
+        if variant == &Variant::Suicide {
             // if you have no pieces left or you stalemate, you win
             if legal_moves == 0 {
                 return MATE_VALUE-self.ply as i16;
@@ -656,6 +660,15 @@ impl Searcher {
                 } else {
                     // stalemate
                     return 0;
+                }
+            }
+            if variant == &Variant::ThreeCheck {
+                // println!("{}", position.checks[position.side]);
+                if position.checks[position.side] >= 3 {
+                    // println!("{}", position.checks[position.side]);
+                    return -MATE_VALUE+self.ply as i16;
+                } else if position.checks[position.side^1] >= 3 {
+                    return MATE_VALUE-self.ply as i16;
                 }
             }
         }
