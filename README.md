@@ -1,6 +1,8 @@
 # HydroChess
 
-HydroChess is a chess engine written in Rust that is capable of beating most human players. As the developer of HydroChess, I have created a formidable tool for playing and analyzing chess.
+HydroChess is a chess engine written in Rust that is capable of beating most intermediate to advanced players.
+
+For variant support I have made a modified version of HydroChess called [Fairy-HydroChess](https://github.com/FirePlank/Fairy-HydroChess). It supports a lot of variants so I suggest you check it out if you are interested!
 
 ## Installation
 
@@ -8,9 +10,9 @@ To install HydroChess, you will need to have Rust and Cargo installed on your ma
 
 Once you have Rust and Cargo installed, you can install HydroChess by cloning this repository and running the following command in the root directory:
 
-`cargo build`
+`cargo build --release`
 
-This will compile the HydroChess code and create an executable in the `target/debug` directory.
+This will compile the HydroChess code and create an executable in the `target/release` directory.
 
 ## Running HydroChess
 
