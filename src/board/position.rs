@@ -242,14 +242,15 @@ impl Position {
         }
         return true;
     }
+    
     // Moves `piece` from the field specified by `from` to the field specified by `to` with the specified `color`, also updates occupancy and incremental values.
-    pub fn move_piece(&mut self, color: u8, piece: u8, from: usize, to: usize) {
-        //self.pieces[color as usize][piece as usize] ^= (1u64 << from) | (1u64 << to);
-        self.occupancies[color as usize].0 ^= (1u64 << from) | (1u64 << to);
+    pub fn move_piece(&mut self, color: u8, piece: u8, to: usize, from: usize) {
+        //self.pieces[color as usize][piece as usize] ^= (1u64 << to) | (1u64 << from);
+        self.occupancies[color as usize].0 ^= (1u64 << to) | (1u64 << from);
 
         // piece table
-        self.bitboards[piece as usize].pop(to);
-        self.bitboards[piece as usize].set(from);
+        self.bitboards[piece as usize].pop(from);
+        self.bitboards[piece as usize].set(to);
 
         // -6 the piece index if its black
         let both = Bitboard(self.occupancies[0].0 | self.occupancies[1].0);
@@ -270,10 +271,10 @@ impl Position {
 
 
             let index = (piece - 6) as usize;
-            self.pst_scores[color as usize][0] -= PSQT[index][to^56];
-            self.pst_scores[color as usize][1] -= PSQT_EG[index][to^56];
-            self.pst_scores[color as usize][0] += PSQT[index][from^56];
-            self.pst_scores[color as usize][1] += PSQT_EG[index][from^56];
+            self.pst_scores[color as usize][0] -= PSQT[index][from^56];
+            self.pst_scores[color as usize][1] -= PSQT_EG[index][from^56];
+            self.pst_scores[color as usize][0] += PSQT[index][to^56];
+            self.pst_scores[color as usize][1] += PSQT_EG[index][to^56];
         } else {
             match piece as usize {
                 // mobility
@@ -289,10 +290,10 @@ impl Position {
                 _ => ()
             }
 
-            self.pst_scores[color as usize][0] -= PSQT[piece as usize][to];
-            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][to];
-            self.pst_scores[color as usize][0] += PSQT[piece as usize][from];
-            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][from];
+            self.pst_scores[color as usize][0] -= PSQT[piece as usize][from];
+            self.pst_scores[color as usize][1] -= PSQT_EG[piece as usize][from];
+            self.pst_scores[color as usize][0] += PSQT[piece as usize][to];
+            self.pst_scores[color as usize][1] += PSQT_EG[piece as usize][to];
         }
     }
 
