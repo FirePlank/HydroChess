@@ -3,8 +3,6 @@ use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 use crate::evaluation::*;
 use crate::cache::*;
-use crate::variants::antichess;
-use crate::variants::threecheck;
 use std::mem::MaybeUninit;
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -25,7 +23,6 @@ pub struct SearchOptions {
     pub threads_automatic: bool,
     pub threads: u16,
     pub hash_size: u16,
-    pub variant: Variant
 }
 
 impl SearchOptions {
@@ -34,7 +31,6 @@ impl SearchOptions {
             threads_automatic: true,
             hash_size: 32,
             threads: 1,
-            variant: Variant::Standard
         }
     }
 }
@@ -130,16 +126,7 @@ impl Searcher {
             // SMP search
             let mut score = -INFINITY;
             let threads = unsafe { OPTIONS.threads };
-            // let variant = unsafe { &OPTIONS.variant };
 
-            // check for variant
-            // if variant != &Variant::Standard {
-            //     // if variant is antichess
-            //     if variant == &Variant::Suicide {
-            //         score = antichess::negamax(position, -INFINITY, INFINITY, current_depth);
-            //     }
-            // }
-            // setoption name uci_variant value giveaway
             // multi-threaded search if allowed
             if unsafe { OPTIONS.threads_automatic } && current_depth > 6 {
                 let mut move_list = MoveList::new();
@@ -268,12 +255,7 @@ impl Searcher {
         self.nodes += 1;
 
         // evaluate position
-        let eval: i16;
-        if unsafe { OPTIONS.variant == Variant::Suicide } {
-            eval = antichess::evaluate(position);
-        } else {
-            eval = evaluate(position);
-        }
+        let eval = evaluate(position);
 
         // fail-hard beta cutoff
         if eval >= beta {
@@ -298,16 +280,10 @@ impl Searcher {
         let mut move_list = MoveList::new();
         // create score moves list
         let mut move_scores: [u32; 256] = unsafe { MaybeUninit::uninit().assume_init() };
-        if unsafe { OPTIONS.variant == Variant::Suicide } {
-            // generate antichess moves
-            move_list = antichess::generate_captures(position);
-        } else {
-            // generate moves
-            position.generate_pseudo_captures(&mut move_list);
-        }
+        position.generate_pseudo_captures(&mut move_list);
         let counted = move_list.count;
 
-        // assing score moves
+        // passing score moves
         self.assign_move_scores(position, move_list.moves, &mut move_scores, counted as usize);
 
         // sort moves
@@ -353,7 +329,7 @@ impl Searcher {
             }
         }
         // node (move) fails low
-        return alpha;
+        alpha
     }
 
     pub fn negamax(&mut self, position: &mut Position, mut alpha: i16, mut beta: i16, mut depth: u8, null_move: bool) -> i16 {
@@ -363,19 +339,13 @@ impl Searcher {
 
         let mut score: i16;
         let is_root = self.ply == 0;
-        let variant = unsafe { &OPTIONS.variant };
 
         // increment nodes counter
         self.nodes += 1;
 
         // too deep, return eval
         if self.ply >= MAX_PLY as u8 {
-            return match variant {
-                Variant::Standard => evaluate(position),
-                Variant::Suicide => antichess::evaluate(position),
-                Variant::Chess960 => evaluate(position),
-                Variant::ThreeCheck => threecheck::evaluate(position)
-            };
+            return evaluate(position);
         }
 
         // fifty-move rule
@@ -383,7 +353,7 @@ impl Searcher {
             return 0;
         }
 
-        // init PV lenght
+        // init PV length
         self.pv_length[self.ply as usize] = self.ply;
         
         if !is_root {
@@ -410,11 +380,9 @@ impl Searcher {
         }
 
         // is king in check
-        let in_check = if unsafe { OPTIONS.variant == Variant::Suicide } { false } else {
-            position.is_attacked(if position.side == 0 { position.bitboards[Piece::WhiteKing as usize].ls1b() as usize } else {
+        let in_check = position.is_attacked(if position.side == 0 { position.bitboards[Piece::WhiteKing as usize].ls1b() as usize } else {
                 position.bitboards[Piece::BlackKing as usize].ls1b() as usize
-            }, position.side^1)
-        };
+            }, position.side^1);
 
         // increase search depth if the king has been exposed to a check
         if in_check {
@@ -436,12 +404,7 @@ impl Searcher {
         }
 
         // static evaluation
-        let eval = match variant {
-            Variant::Standard => evaluate(position),
-            Variant::Suicide => antichess::evaluate(position),
-            Variant::Chess960 => evaluate(position),
-            Variant::ThreeCheck => threecheck::evaluate(position)
-        };
+        let eval = evaluate(position);
 
         if !in_check && !pv_node {
             // evaluation pruning
@@ -514,13 +477,7 @@ impl Searcher {
         // create score moves list
         let mut move_scores: [u32; 256] = unsafe { MaybeUninit::uninit().assume_init() };
 
-        if unsafe { OPTIONS.variant == Variant::Suicide } {
-            // generate antichess moves
-            move_list = antichess::generate_moves(position);
-        } else {
-            // generate moves
-            position.generate_pseudo_moves(&mut move_list);
-        }
+        position.generate_pseudo_moves(&mut move_list);
         let counted = move_list.count;
         // if we are now following PV line
         if self.follow_pv {
@@ -647,29 +604,13 @@ impl Searcher {
             }
         }
         // check if checkmate or stalemate
-        if variant == &Variant::Suicide {
-            // if you have no pieces left or you stalemate, you win
-            if legal_moves == 0 {
-                return MATE_VALUE-self.ply as i16;
-            }
-        } else {
-            if legal_moves == 0 {
-                if in_check {
-                    // checkmate
-                    return -MATE_VALUE+self.ply as i16;
-                } else {
-                    // stalemate
-                    return 0;
-                }
-            }
-            if variant == &Variant::ThreeCheck {
-                // println!("{}", position.checks[position.side]);
-                if position.checks[position.side] >= 3 {
-                    // println!("{}", position.checks[position.side]);
-                    return -MATE_VALUE+self.ply as i16;
-                } else if position.checks[position.side^1] >= 3 {
-                    return MATE_VALUE-self.ply as i16;
-                }
+        if legal_moves == 0 {
+            if in_check {
+                // checkmate
+                return -MATE_VALUE+self.ply as i16;
+            } else {
+                // stalemate
+                return 0;
             }
         }
         // store hash entry with the score equal to alpha

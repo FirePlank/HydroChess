@@ -11,7 +11,7 @@ use crate::uci::*;
 
 const NAME: &str = "HydroChess";
 const AUTHOR: &str = "FirePlank";
-pub const SUPPORTED_VARIANTS: [&str; 6] = ["standard", "suicide", "giveaway", "antichess", "3check", "three-check"];
+pub const SUPPORTED_VARIANTS: [&str; 2] = ["chess", "standard"];
 
 // main UCI loop
 pub fn main_loop() {

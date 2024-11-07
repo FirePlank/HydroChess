@@ -2,8 +2,6 @@ use crate::board::position::*;
 use crate::r#move::encode::*;
 use crate::r#move::movegen::*;
 use crate::search::OPTIONS;
-use crate::variants::antichess;
-use crate::variants::chess960;
 
 use std::time::Instant;
 
@@ -22,12 +20,7 @@ pub fn perft_driver(position: &mut Position, depth: u32) {
     }
 
     let mut move_list = MoveList::new();
-    let variant = unsafe { &OPTIONS.variant };
-    match variant {
-        Variant::Chess960 => chess960::generate_moves(position, &mut move_list),
-        Variant::Suicide => { move_list = antichess::generate_moves(position) },
-        _ => position.generate_pseudo_moves(&mut move_list)
-    }
+    position.generate_pseudo_moves(&mut move_list);
 
     // loop over generated moves
     for move_count in 0..move_list.count {
@@ -52,12 +45,7 @@ pub fn perft_test(position: &mut Position, depth: u32) {
     println!("\n    Performance test\n");
 
     let mut move_list = MoveList::new();
-    let variant = unsafe { &OPTIONS.variant };
-    match variant {
-        Variant::Chess960 => chess960::generate_moves(position, &mut move_list),
-        Variant::Suicide => { move_list = antichess::generate_moves(position) },
-        _ => position.generate_pseudo_moves(&mut move_list)
-    }
+    position.generate_pseudo_moves(&mut move_list);
 
     // start timer
     let now = Instant::now();

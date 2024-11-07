@@ -19,9 +19,6 @@ use evaluation::*;
 mod cache;
 use cache::*;
 
-mod variants;
-use variants::*;
-
 use std::mem::MaybeUninit;
 
 // use std::thread;

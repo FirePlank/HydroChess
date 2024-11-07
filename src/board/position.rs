@@ -90,14 +90,6 @@ pub enum PieceType {
     KING,
 }
 
-#[derive(PartialEq)]
-pub enum Variant {
-    Standard,
-    Suicide,
-    Chess960,
-    ThreeCheck
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct Side;
 impl Side {
@@ -126,7 +118,6 @@ pub struct Position {
     pub material_scores: [[i16; 2]; 2],
     pub pst_scores: [[i16; 2]; 2],
     pub mobility: [i16; 12],
-    pub checks: [usize; 2]  // <-- for three check variant
 }
 
 impl Position {
@@ -167,7 +158,6 @@ impl Position {
             material_scores: [[0; 2]; 2],
             pst_scores: [[0; 2]; 2],
             mobility: [0; 12],
-            checks: [0; 2]  // <-- for three check variant
         };
         pos.hash = pos.generate_hash_key();
         init_calculation(&mut pos);
@@ -193,7 +183,6 @@ impl Position {
             material_scores: [[0; 2]; 2],
             pst_scores: [[0; 2]; 2],
             mobility: [0; 12],
-            checks: [0; 2]
         }
     }
 
@@ -526,96 +515,6 @@ impl Position {
 
         // handle castling
         if castling != 0 {
-            if unsafe { OPTIONS.variant == Variant::Chess960 } {
-                if target_square > 40 {
-                    // white
-                    if target_square > source_square {
-                        let left_rook_square = self.bitboards[Piece::WhiteRook as usize].ls1b();
-                        // pop the rook from the bitboard
-                        self.bitboards[Piece::WhiteRook as usize].pop(left_rook_square as usize);
-                        let right_rook_square = self.bitboards[Piece::WhiteRook as usize].ls1b();
-                        // add the rook back
-                        self.bitboards[Piece::WhiteRook as usize].set(left_rook_square as usize);
-
-                        // move the rook
-                        self.move_piece(
-                            0,
-                            Piece::WhiteRook as u8,
-                            Square::F1 as usize,
-                            right_rook_square as usize,
-                        );
-
-                        // hash rook
-                        unsafe {
-                            self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][right_rook_square as usize];
-                            self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][Square::F1 as usize];
-                        }
-
-                        self.rook_positions_stack.push(right_rook_square as usize);
-                    } else {
-                        let left_rook_square = self.bitboards[Piece::WhiteRook as usize].ls1b();
-
-                        // move the rook
-                        self.move_piece(
-                            0,
-                            Piece::WhiteRook as u8,
-                            Square::D1 as usize,
-                            left_rook_square as usize,
-                        );
-
-                        // hash rook
-                        unsafe {
-                            self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][left_rook_square as usize];
-                            self.hash ^= ZOBRIST_KEYS[Piece::WhiteRook as usize][Square::D1 as usize];
-                        }
-
-                        self.rook_positions_stack.push(left_rook_square as usize);
-                    }
-                } else {
-                    // black
-                    if target_square > source_square {
-                        let left_rook_square = self.bitboards[Piece::BlackRook as usize].ls1b();
-                        // pop the rook from the bitboard
-                        self.bitboards[Piece::BlackRook as usize].pop(left_rook_square as usize);
-                        let right_rook_square = self.bitboards[Piece::BlackRook as usize].ls1b();
-                        // add the rook back
-                        self.bitboards[Piece::BlackRook as usize].set(left_rook_square as usize);
-
-                        // move the rook
-                        self.move_piece(
-                            1,
-                            Piece::BlackRook as u8,
-                            Square::F8 as usize,
-                            right_rook_square as usize,
-                        );
-
-                        // hash rook
-                        unsafe {
-                            self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][right_rook_square as usize];
-                            self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][Square::F8 as usize];
-                        }
-
-                        self.rook_positions_stack.push(right_rook_square as usize);
-                    } else {
-                        let left_rook_square = self.bitboards[Piece::BlackRook as usize].ls1b();
-                        // move the rook
-                        self.move_piece(
-                            1,
-                            Piece::BlackRook as u8,
-                            Square::D8 as usize,
-                            left_rook_square as usize,
-                        );
-
-                        // hash rook
-                        unsafe {
-                            self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][left_rook_square as usize];
-                            self.hash ^= ZOBRIST_KEYS[Piece::BlackRook as usize][Square::D8 as usize];
-                        }
-
-                        self.rook_positions_stack.push(left_rook_square as usize);
-                    }
-                }
-            } else {
             // move the rook
             match target_square {
                 62 => {
@@ -680,7 +579,6 @@ impl Position {
                 }
                 _ => panic!("Invalid castling move: {}", target_square),
             }
-            }
         }
 
         // hash castling
@@ -710,19 +608,6 @@ impl Position {
         //     println!();
         // }
 
-        if unsafe { OPTIONS.variant == Variant::ThreeCheck } {
-            // check if opponent got checked
-            if self.side == 0 {
-                if self.is_attacked(self.bitboards[Piece::WhiteKing as usize].ls1b() as usize, 1) {
-                    self.checks[0] += 1;
-                }
-            } else {
-                if self.is_attacked(self.bitboards[Piece::BlackKing as usize].ls1b() as usize, 0) {
-                    self.checks[1] += 1;
-                }
-            }
-        }
-
         // update half move clock
         if piece == 0 || capture != 0 {
             self.halfmove = 0;
@@ -732,69 +617,24 @@ impl Position {
 
         if self.side == 0 {
             self.fullmove += 1;
-            if unsafe { OPTIONS.variant == Variant::Suicide} {
-                return true;
-                // // if side has no pieces, the game is over
-                // if self.occupancies[Side::WHITE].is_empty() {
-                //     return false;
-                // } else {
-                //     return true;
-                // }
-            }
 
             // check if the move is illegal
             if self.is_attacked(self.bitboards[Piece::BlackKing as usize].ls1b() as usize, 0) {
                 // move is illegal
                 return false;
             }
-
-            if unsafe { OPTIONS.variant == Variant::ThreeCheck } {
-                // if 3 checks have been achieved, the game is over
-                if self.checks[1] >= 3 {
-                    return false;
-                }
-            }
         } else {
-            if unsafe { OPTIONS.variant == Variant::Suicide} {
-                // if self.occupancies[Side::BLACK].is_empty() {
-                //     return false;
-                // } else {
-                //     return true;
-                // }
-                return true;
-            }
-
             // check if the move is illegal
             if self.is_attacked(self.bitboards[Piece::WhiteKing as usize].ls1b() as usize, 1) {
                 // move is illegal
                 return false;
             }
-
-            if unsafe { OPTIONS.variant == Variant::ThreeCheck } {
-                // if 3 checks have been achieved, the game is over
-                if self.checks[0] >= 3 {
-                    return false;
-                }
-            }
         }
 
-        return true;
+        true
     }
 
     pub fn unmake(&mut self, move_: u32) {
-        if unsafe { OPTIONS.variant == Variant::ThreeCheck } {
-            // check if we need to remove a check
-            if self.side == 0 {
-                if self.is_attacked(self.bitboards[Piece::WhiteKing as usize].ls1b() as usize, 1) {
-                    self.checks[0] -= 1;
-                }
-            } else {
-                if self.is_attacked(self.bitboards[Piece::BlackKing as usize].ls1b() as usize, 0) {
-                    self.checks[1] -= 1;
-                }
-            }
-        }
-
         let opp_color = self.side;
         self.side ^= 1;
 
@@ -824,47 +664,24 @@ impl Position {
 
         // check flags to determine how to proceed with undoing the move
         if castling != 0 {
-            if unsafe { OPTIONS.variant == Variant::Chess960 } {
-                let rook_square = self.rook_positions_stack.pop().unwrap();
-                match to {
-                    62 => {
-                        self.move_piece(0, Piece::WhiteKing as u8, from.into(), 62);
-                        self.move_piece(0, Piece::WhiteRook as u8, rook_square, 61);
-                    }
-                    58 => {
-                        self.move_piece(0, Piece::WhiteKing as u8, from.into(), 58);
-                        self.move_piece(0, Piece::WhiteRook as u8, rook_square, 59);
-                    }
-                    6 => {
-                        self.move_piece(1, Piece::BlackKing as u8, from.into(), 6);
-                        self.move_piece(1, Piece::BlackRook as u8, rook_square, 5);
-                    }
-                    2 => {
-                        self.move_piece(1, Piece::BlackKing as u8, from.into(), 2);
-                        self.move_piece(1, Piece::BlackRook as u8, rook_square, 3);
-                    }
-                    _ => panic!("Invalid castling move: {}", to)
+            match to {
+                62 => {
+                    self.move_piece(0, Piece::WhiteKing as u8, 60, 62);
+                    self.move_piece(0, Piece::WhiteRook as u8, 63, 61);
                 }
-            } else {
-                match to {
-                    62 => {
-                        self.move_piece(0, Piece::WhiteKing as u8, 60, 62);
-                        self.move_piece(0, Piece::WhiteRook as u8, 63, 61);
-                    }
-                    58 => {
-                        self.move_piece(0, Piece::WhiteKing as u8, 60, 58);
-                        self.move_piece(0, Piece::WhiteRook as u8, 56, 59);
-                    }
-                    6 => {
-                        self.move_piece(1, Piece::BlackKing as u8, 4, 6);
-                        self.move_piece(1, Piece::BlackRook as u8, 7, 5);
-                    }
-                    2 => {
-                        self.move_piece(1, Piece::BlackKing as u8, 4, 2);
-                        self.move_piece(1, Piece::BlackRook as u8, 0, 3);
-                    }
-                    _ => panic!("Invalid castling move: {}", to)
+                58 => {
+                    self.move_piece(0, Piece::WhiteKing as u8, 60, 58);
+                    self.move_piece(0, Piece::WhiteRook as u8, 56, 59);
                 }
+                6 => {
+                    self.move_piece(1, Piece::BlackKing as u8, 4, 6);
+                    self.move_piece(1, Piece::BlackRook as u8, 7, 5);
+                }
+                2 => {
+                    self.move_piece(1, Piece::BlackKing as u8, 4, 2);
+                    self.move_piece(1, Piece::BlackRook as u8, 0, 3);
+                }
+                _ => panic!("Invalid castling move: {}", to)
             }
         } else if enpassant != 0 {
             self.move_piece(self.side as u8, piece, from as usize, to as usize);
@@ -990,10 +807,6 @@ impl Position {
         println!("   Halfmove clock: {}", self.halfmove);
         // print fullmove number
         println!("   Fullmove number: {}\n", self.fullmove);
-        // print checks if variant is three check
-        if unsafe { OPTIONS.variant == Variant::ThreeCheck } {
-            println!("   Checks: White: {} Black: {}", self.checks[0], self.checks[1]);
-        }
     }
 
     pub fn from_fen(fen: &str) -> Position {

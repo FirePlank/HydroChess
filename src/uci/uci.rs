@@ -1,12 +1,11 @@
-use crate::variants::antichess;
 use crate::{r#move::movegen::*, board::position};
 use crate::board::position::*;
 use crate::cache::*;
 use crate::r#move::encode::*;
 use crate::search::*;
-use crate::interface::SUPPORTED_VARIANTS;
 
 use std::time::{UNIX_EPOCH, SystemTime};
+use crate::uci::SUPPORTED_VARIANTS;
 
 impl Position {
     // parse user/GUI move string input (eg. "e2e4")
@@ -16,12 +15,8 @@ impl Position {
         let mut move_parse = move_parse.chars();
         // create move list
         let mut move_list = MoveList::new();
-        if unsafe { OPTIONS.variant == Variant::Suicide } {
-            move_list = antichess::generate_moves(self);
-        } else { 
-            // generate pseudo-legal moves
-            self.generate_pseudo_moves(&mut move_list);
-        }
+        // generate pseudo-legal moves
+        self.generate_pseudo_moves(&mut move_list);
 
         // parse source square
         let source_square = *ASCII_TO_SQUARE.get((move_parse.next().unwrap_or('.').to_string()+&move_parse.next().unwrap_or('.').to_string()).as_str()).unwrap_or_else( || {
@@ -65,9 +60,7 @@ impl Position {
                     // promoted to bishop
                     ((promoted_piece == Piece::WhiteBishop as u8 || promoted_piece == Piece::BlackBishop as u8) && promotion_string == 'b') ||
                     // promoted to knight
-                    ((promoted_piece == Piece::WhiteKnight as u8 || promoted_piece == Piece::BlackKnight as u8) && promotion_string == 'n') ||
-                    // promoted to king (variants only)
-                    ((promoted_piece == Piece::WhiteKing as u8 || promoted_piece == Piece::BlackKing as u8) && promotion_string == 'k') {
+                    ((promoted_piece == Piece::WhiteKnight as u8 || promoted_piece == Piece::BlackKnight as u8) && promotion_string == 'n') {
                         // return move
                         return move_;
                     }
@@ -211,53 +204,7 @@ pub fn parse_position(cmd: &str) -> Position {
     
     // if 3check is enabled, split and remove + from command and parse it
     let mut cmd = cmd.to_string();
-    let mut checks: [usize; 2];
-    if unsafe { OPTIONS.variant == Variant::ThreeCheck } {
-        // get amount of + signs in command
-        let count = cmd.matches('+').count();
-        // if there are more than 1 + signs
-        if count == 1 {
-            // checks are right before and after the first + sign
-            let index = cmd.find('+').unwrap_or_else(|| {
-                println!("info string Invalid uci command given");
-                return 0;
-            });
-            checks = [cmd[index-1..index].parse::<usize>().unwrap_or_else(|error| {
-                println!("info string Invalid parameter value given: {}", error);
-                return 0;
-            }), cmd[index+1..index+2].parse::<usize>().unwrap_or_else(|error| {
-                println!("info string Invalid parameter value given: {}", error);
-                return 0;
-            })];
-
-            for i in 0..2 {
-                checks[i] = 3 - checks[i];
-            }
-
-            cmd = cmd.replace(&cmd[index-1..index+3], "");
-        } else { 
-            // get index of first + in command
-            let index = cmd.find('+').unwrap_or_else(|| {
-                println!("info string Invalid uci command given");
-                return 0;
-            });
-            // get next 3 characters after +
-            let check = &cmd[index+1..index+4];
-            // parse checks, numbers are right before and after the + sign
-            checks = [check[2..3].parse::<usize>().unwrap_or_else(|error| {
-                println!("info string Invalid parameter value given: {}", error);
-                return 0;
-            }), check[0..1].parse::<usize>().unwrap_or_else(|error| {
-                println!("info string Invalid parameter value given: {}", error);
-                return 0;
-            })];
-
-            // remove that part from command starting from + and ending after 3rd character
-            cmd = cmd.replace(&format!("+{}", check), "");
-        }
-    } else {
-        checks = [0, 0];
-    }
+    let checks = [0, 0];
 
     // println!("info string cmd: {}", cmd);
     // println!("info string checks: {} {}", checks[0], checks[1]);
@@ -286,8 +233,6 @@ pub fn parse_position(cmd: &str) -> Position {
         }
         // init board from fen
         position = Position::from_fen(&fen);
-        position.checks = checks;
-
     } else if next != "." { println!("info string Invalid uci command given"); }
 
     // parse moves after position
@@ -380,13 +325,7 @@ pub fn parse_option(cmd: &str) {
         if split_cmd.next().unwrap_or_else(error) == "value" {
             // check if variant in SUPPORTED_VARIANTS list
             let variant = split_cmd.next().unwrap_or_else(error);
-            if SUPPORTED_VARIANTS.contains(&variant) {
-                match variant {
-                    "antichess" | "suicide" | "giveaway" => unsafe { OPTIONS.variant = Variant::Suicide },
-                    "3check" | "three-check" => unsafe { OPTIONS.variant = Variant::ThreeCheck }
-                    _ => (),
-                }
-            } else {
+            if !SUPPORTED_VARIANTS.contains(&variant) {
                 println!("info string Unknown variant given");
             }
         }
